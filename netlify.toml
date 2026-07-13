@@ -1,0 +1,5 @@
+# Static single-page app — no build step.
+# The entire app lives in index.html; assets load from CDNs at runtime.
+[build]
+  publish = "."
+  command = ""

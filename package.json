@@ -1,0 +1,11 @@
+{
+  "name": "sfny-crm-standalone",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Studio Farms CRM — single-page app, hosted on Supabase (Postgres + Auth + Realtime)",
+  "scripts": {
+    "dev": "npx --yes serve . -l 5173",
+    "start": "npx --yes serve . -l 5173",
+    "seed:supabase": "node scripts/seed-supabase.mjs"
+  }
+}
