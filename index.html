@@ -2871,11 +2871,13 @@ function renderRepTable(){
   var overdueSales=filtered.filter(function(o){return o._effPay==="Overdue";}).reduce(function(s,o){return s+o.total;},0);
   var earnedComm=+(paidSales*RATE).toFixed(2);
   var pendingComm=+((totalSales-paidSales)*RATE).toFixed(2);
+  var totalComm=+(totalSales*RATE).toFixed(2);
   document.getElementById("repSummary").innerHTML=
     '<div class="rs-item"><div class="rs-label">Orders</div><div class="rs-val">'+filtered.length+'</div></div>'+
     '<div class="rs-item"><div class="rs-label">Total Sales</div><div class="rs-val">$'+totalSales.toLocaleString()+'</div></div>'+
-    '<div class="rs-item"><div class="rs-label">Commission Earned</div><div class="rs-val c-green">$'+earnedComm.toLocaleString()+'</div></div>'+
-    '<div class="rs-item"><div class="rs-label">Paid Sales</div><div class="rs-val c-green">$'+paidSales.toLocaleString()+'</div></div>'+
+    '<div class="rs-item"><div class="rs-label">Total Comm. (All Orders)</div><div class="rs-val">$'+totalComm.toLocaleString()+'</div></div>'+
+    '<div class="rs-item"><div class="rs-label">Paid Sales (Collected)</div><div class="rs-val c-green">$'+paidSales.toLocaleString()+'</div></div>'+
+    '<div class="rs-item"><div class="rs-label">Commission Earned (Paid)</div><div class="rs-val c-green">$'+earnedComm.toLocaleString()+'</div></div>'+
     '<div class="rs-item"><div class="rs-label">Outstanding</div><div class="rs-val c-amber">$'+(totalSales-paidSales).toLocaleString()+'</div></div>'+
     '<div class="rs-item"><div class="rs-label">Pending Comm.</div><div class="rs-val c-amber">$'+pendingComm.toFixed(2)+'</div></div>';
   var body=document.getElementById("repBody");
@@ -2920,8 +2922,9 @@ function exportRepCSV(){
   });
   rows.push("");
   rows.push('"TOTAL SALES","$'+totalSales.toLocaleString()+'","","","","","",""');
-  rows.push('"PAID SALES","$'+paidSales.toLocaleString()+'","","","","","",""');
-  rows.push('"COMMISSION EARNED","$'+(paidSales*RATE).toFixed(2)+'","","","","","",""');
+  rows.push('"COMMISSION (ALL ORDERS)","$'+(totalSales*RATE).toFixed(2)+'","","","","","",""');
+  rows.push('"PAID SALES (COLLECTED)","$'+paidSales.toLocaleString()+'","","","","","",""');
+  rows.push('"COMMISSION EARNED (PAID)","$'+(paidSales*RATE).toFixed(2)+'","","","","","",""');
   rows.push('"COMMISSION PENDING","$'+((totalSales-paidSales)*RATE).toFixed(2)+'","","","","","",""');
   var csv=[hdr.join(",")].concat(rows).join("\n");
   var blob=new Blob([csv],{type:"text/csv"});
