@@ -1514,7 +1514,13 @@ function checkPw(){
 <div class="overlay" id="repOverlay" onclick="if(event.target===this)closeRepModal()">
   <div class="rep-modal">
     <h2>&#128101; Sales Rep Commission</h2>
-    <p>Commission rate: <strong style="color:#34d399">3%</strong> of order total &nbsp;|&nbsp; Earned on: Paid orders only</p>
+    <p>Commission rate:
+      <input id="repRateInput" type="number" min="0" max="100" step="0.5" onchange="saveCommissionRate(this.value)"
+        title="Set the commission rate (shared for the whole team)"
+        style="width:62px;padding:4px 6px;border:1px solid #2d3148;border-radius:6px;background:#151720;color:#34d399;font-weight:700;font-size:13px;text-align:right">%
+      of order total &nbsp;|&nbsp; Earned on: Paid (collected) orders only
+      <span id="repRateSaved" style="font-size:11px;margin-left:6px"></span>
+    </p>
     <div class="rep-controls">
       <select class="fsel" id="repSelRep" onchange="renderRepTable()" style="flex:1"><option value="all">All Reps</option></select>
       <select class="fsel" id="repSelMonth" onchange="renderRepTable()" style="flex:1"><option value="all">All Months</option></select>
@@ -2827,9 +2833,49 @@ function copyRemind(){
 
 function openRepModal(){
   syncRepDropdowns();renderRepChips();renderRepTable();
+  loadCommissionRate();
   document.getElementById("repOverlay").classList.add("open");
 }
 function closeRepModal(){document.getElementById("repOverlay").classList.remove("open");}
+
+// ---- Commission rate (shared across the team via app_settings) -------------
+window.SF_COMMISSION_RATE=(function(){var v=parseFloat(localStorage.getItem("sf_commission_rate"));return (isFinite(v)&&v>0)?v:0.03;})();
+function repCommissionRate(){return (window.SF_COMMISSION_RATE>0?window.SF_COMMISSION_RATE:0.03);}
+async function loadCommissionRate(){
+  var input=document.getElementById("repRateInput");
+  if(input)input.value=+(repCommissionRate()*100).toFixed(4);
+  try{
+    if(window.sbClient){
+      var r=await window.sbClient.from("app_settings").select("value").eq("key","commission_rate").maybeSingle();
+      if(!r.error&&r.data&&r.data.value){
+        var rate=parseFloat(r.data.value.rate!=null?r.data.value.rate:r.data.value);
+        if(isFinite(rate)&&rate>0){
+          window.SF_COMMISSION_RATE=rate;
+          localStorage.setItem("sf_commission_rate",String(rate));
+          if(input)input.value=+(rate*100).toFixed(4);
+          if(document.getElementById("repOverlay").classList.contains("open"))renderRepTable();
+        }
+      }
+    }
+  }catch(e){}
+}
+async function saveCommissionRate(pct){
+  var p=parseFloat(pct),note=document.getElementById("repRateSaved");
+  if(!isFinite(p)||p<0||p>100){if(note){note.textContent="Enter 0–100";note.style.color="#f08080";}return;}
+  var rate=+(p/100);
+  window.SF_COMMISSION_RATE=rate;
+  localStorage.setItem("sf_commission_rate",String(rate));
+  renderRepTable();
+  if(note){note.textContent="Saving…";note.style.color="#c8a96e";}
+  try{
+    if(window.sbClient){
+      var r=await window.sbClient.from("app_settings").upsert({key:"commission_rate",value:{rate:rate}}).select();
+      if(r.error)throw r.error;
+      if(note){note.textContent="Saved for the whole team";note.style.color="#34d399";}
+    }else if(note){note.textContent="Saved on this device";note.style.color="#fbbf24";}
+  }catch(e){if(note){note.textContent="Save failed — try again";note.style.color="#f08080";}}
+  if(note)setTimeout(function(){if(note)note.textContent="";},2600);
+}
 
 function syncRepDropdowns(){
   var sel=document.getElementById("repSelRep");
@@ -2856,7 +2902,7 @@ function renderRepTable(){
   var todayStr=new Date().toISOString().slice(0,10);
   var rep=document.getElementById("repSelRep").value;
   var month=document.getElementById("repSelMonth").value;
-  var RATE=0.03;
+  var RATE=repCommissionRate();
   var filtered=rt_orders.filter(function(o){
     var repMatch=(rep==="all")?(o.salesrep&&o.salesrep!==""):(o.salesrep===rep);
     var monthMatch=(month==="all")||(o.date&&o.date.indexOf(month)===0);
@@ -2903,7 +2949,7 @@ function exportRepCSV(){
   var todayStr=new Date().toISOString().slice(0,10);
   var rep=document.getElementById("repSelRep").value;
   var month=document.getElementById("repSelMonth").value;
-  var RATE=0.03;
+  var RATE=repCommissionRate();
   var filtered=rt_orders.filter(function(o){
     var repMatch=(rep==="all")?(o.salesrep&&o.salesrep!==""):o.salesrep===rep;
     var monthMatch=(month==="all")||(o.date&&o.date.indexOf(month)===0);
@@ -2914,7 +2960,7 @@ function exportRepCSV(){
   });
   var totalSales=filtered.reduce(function(s,o){return s+o.total;},0);
   var paidSales=filtered.filter(function(o){return o._effPay==="Paid";}).reduce(function(s,o){return s+o.total;},0);
-  var hdr=["Invoice #","Dispensary","Order Date","Sales Rep","Total","Pay Status","Commission (3%)","Status"];
+  var hdr=["Invoice #","Dispensary","Order Date","Sales Rep","Total","Pay Status","Commission ("+(+(RATE*100).toFixed(4))+"%)","Status"];
   var rows=filtered.map(function(o){
     var ds=o._effPay||o.paystatus;
     return [o.id,o.dispensary,o.date,o.salesrep,o.total,ds,(o.total*RATE).toFixed(2),ds==="Paid"?"Earned":(ds==="Overdue"?"Overdue":"Pending")]
