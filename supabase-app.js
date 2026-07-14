@@ -420,12 +420,28 @@
   // ===========================================================================
   // Boot
   // ===========================================================================
+  // Initial load can transiently fail right after login if the auth token's
+  // "issued at" is a moment ahead of the data service's clock ("JWT issued at
+  // future") — a brief server-side skew. Retry a few times before giving up so
+  // a one-off blip doesn't surface as "Could not load data".
+  async function fetchAllWithRetry(tries) {
+    var lastErr;
+    for (var i = 0; i < tries; i++) {
+      try { return await fetchAll(); }
+      catch (e) {
+        lastErr = e;
+        if (i < tries - 1) await new Promise(function (r) { setTimeout(r, 1200); });
+      }
+    }
+    throw lastErr;
+  }
+
   var started = false;
   async function start(session) {
     if (started) return;
     started = true;
     try {
-      var data = await fetchAll();
+      var data = await fetchAllWithRetry(4);
       if (!data.accounts.length && !data.orders.length) {
         await seedIfEmpty();
         data = await fetchAll();
