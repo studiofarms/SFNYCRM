@@ -1996,15 +1996,11 @@ function updateSortIndicators(){
 
 // ─── AUTO OVERDUE ─────────────────────────────────────────────────
 function checkOverdueOrders(){
-  var today = new Date().toISOString().slice(0,10);
-  var changed = false;
-  rt_orders.forEach(function(o){
-    if(o.paystatus !== 'Paid' && o.paystatus !== 'Overdue' && o.paydue && o.paydue < today){
-      o.paystatus = 'Overdue';
-      changed = true;
-    }
-  });
-  if(changed) persist();
+  // Intentionally a no-op. This used to auto-rewrite any past-due, unpaid order
+  // to "Overdue" and persist it — which silently clobbered a manually-set pay
+  // status (e.g. "Pending") on the next load, so manual changes didn't "stick".
+  // Pay status is now whatever the user selects; the dashboard still surfaces a
+  // derived "Overdue" count as an at-a-glance hint (see rt_renderStats).
 }
 
 function rt_renderStats(){
@@ -2067,9 +2063,8 @@ function getFiltered(){
   var st=document.getElementById("filterStatus").value;
   var pt=document.getElementById("filterPay").value;
   var tr=document.getElementById("filterTerms").value;
-  var today=new Date().toISOString().slice(0,10);
   return rt_orders.filter(function(o){
-    var effPay=(o.paystatus!=="Paid"&&o.paydue&&o.paydue<today)?"Overdue":o.paystatus;
+    var effPay=o.paystatus; // filter by the stored pay status the user set
     var mq=!q||(o.dispensary||"").toLowerCase().includes(q)||(o.id||"").toLowerCase().includes(q)||(o.name||"").toLowerCase().includes(q)||(o.email||"").toLowerCase().includes(q);
     return mq&&(!st||o.ordstatus===st)&&(!pt||effPay===pt)&&(!tr||o.terms===tr);
   });
@@ -2088,8 +2083,9 @@ function renderTable(){
   }
   body.innerHTML=slice.map(function(o){
     var oi=rt_orders.indexOf(o);
-    var overdue=o.paystatus!=="Paid"&&o.paydue&&o.paydue<today;
-    var effPay=overdue?"Overdue":o.paystatus;
+    // Show exactly the pay status the user set (don't auto-override to Overdue).
+    var effPay=o.paystatus;
+    var overdue=o.paystatus==="Overdue";
     var invCell;
     if(o.link){
       invCell='<a href="'+o.link+'" target="_blank" style="color:#818cf8;font-weight:600;text-decoration:none;border-bottom:1px solid #6366f1" title="Open Invoice PDF">'+o.id+' &#8599;</a>';
