@@ -475,7 +475,12 @@
 
   // Login entry point used by checkPw() in index.html.
   window.sbLogin = async function (email, password) {
-    var res = await sb.auth.signInWithPassword({ email: email, password: password });
+    // Support "no email" username logins (e.g. "admin"): if the value has no
+    // "@", map it to the internal studiofarms.local domain. Real email logins
+    // (which contain "@") are unaffected. Emails are case-insensitive.
+    var ident = (email || '').trim().toLowerCase();
+    if (ident && ident.indexOf('@') === -1) ident = ident + '@studiofarms.local';
+    var res = await sb.auth.signInWithPassword({ email: ident, password: password });
     if (res.error) {
       var m = res.error.message || 'Login failed.';
       if (/invalid login credentials/i.test(m)) m = 'Incorrect email or password.';
