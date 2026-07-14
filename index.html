@@ -2904,9 +2904,9 @@ function renderRepTable(){
     var monthMatch=(month==="all")||(o.date&&o.date.indexOf(month)===0);
     return repMatch&&monthMatch;
   });
-  // Compute effective status (auto-marks past-due Pending as Overdue at display time)
+  // Use the pay status exactly as set (no auto-Overdue override at display time).
   filtered.forEach(function(o){
-    o._effPay = (o.paystatus!=="Paid" && o.paydue && o.paydue<todayStr) ? "Overdue" : o.paystatus;
+    o._effPay = o.paystatus;
   });
   var totalSales=filtered.reduce(function(s,o){return s+o.total;},0);
   var paidSales=filtered.filter(function(o){return o._effPay==="Paid";}).reduce(function(s,o){return s+o.total;},0);
@@ -2952,7 +2952,7 @@ function exportRepCSV(){
     return repMatch&&monthMatch;
   });
   filtered.forEach(function(o){
-    o._effPay = (o.paystatus!=="Paid" && o.paydue && o.paydue<todayStr) ? "Overdue" : o.paystatus;
+    o._effPay = o.paystatus;
   });
   var totalSales=filtered.reduce(function(s,o){return s+o.total;},0);
   var paidSales=filtered.filter(function(o){return o._effPay==="Paid";}).reduce(function(s,o){return s+o.total;},0);
@@ -9309,15 +9309,13 @@ function openReport(period) {
     totalOutstanding += bal;
     totalOrders++;
 
-    // Late = unpaid and past pay-due date
-    var isLate = (ps !== 'Paid') && o.paydue && o.paydue < todayISOStr;
-
     // Reuse the existing payment status pill classes (Paid/Pending/Late/Partial).
-    // Map Overdue/Failed to "Late" so the existing CSS pill styling applies.
-    // Also: auto-flip past-due Pending → Late so reports reflect reality.
+    // Map stored Overdue/Failed to the "Late" pill styling. Pay status is exactly
+    // what the user set — we do NOT auto-flip a past-due Pending to Late (that
+    // made a "Pending" order show with a red pill).
     var psNorm = ps;
     if (ps === 'Overdue' || ps === 'Failed') psNorm = 'Late';
-    else if (ps === 'Pending' && isLate) psNorm = 'Late';
+    var isLate = (psNorm === 'Late');
     if (psNorm === 'Paid') paid++;
     else if (psNorm === 'Pending') pending++;
     else if (psNorm === 'Late') late++;
