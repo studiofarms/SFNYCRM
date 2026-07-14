@@ -9381,7 +9381,7 @@ function openReport(period) {
     body += '<div style="font-size:13px;color:var(--text3);padding:20px 0">No orders found for this period. Use the + New Order button to add orders.</div>';
   } else {
     body += '<table class="report-table">';
-    body += '<thead><tr><th>Invoice #</th><th>Order Date</th><th>Dispensary</th><th>Contact</th><th style="text-align:right">Qty (oz)</th><th style="text-align:right">Total</th><th>Pay Status</th><th>Order Status</th><th style="text-align:right">Balance</th></tr></thead><tbody>';
+    body += '<thead><tr><th>Invoice #</th><th>Order Date</th><th>Dispensary</th><th>Contact</th><th style="text-align:right">Qty (oz)</th><th style="text-align:right">Total</th><th>Pay Status</th><th style="text-align:right">Balance</th></tr></thead><tbody>';
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       var srcTag = '';
@@ -9395,7 +9395,6 @@ function openReport(period) {
       body += '<td style="text-align:right;font-family:monospace">'+r.oz+'</td>';
       body += '<td style="text-align:right;color:var(--green);font-family:monospace">$'+r.total.toLocaleString()+'</td>';
       body += '<td><span class="status-pill '+spClass(r.payStatus)+'">'+r.payStatusOrig+'</span></td>';
-      body += '<td style="color:var(--text3);font-size:11px">'+r.ordStatus+'</td>';
       body += '<td style="text-align:right;color:'+(r.balance>0?'var(--red)':'var(--text3)')+';font-family:monospace">$'+r.balance.toLocaleString()+'</td>';
       body += '</tr>';
     }
@@ -9423,12 +9422,12 @@ function closeReport() { document.getElementById('report-bg').classList.remove('
 function downloadReportCSV() {
   var range = getReportRange(currentReportPeriod);
   var rows = currentReportData;
-  var headers = ['Invoice #','Order Date','Dispensary','Contact','Qty (oz)','Total','Pay Status','Order Status','Pay Method','Terms','Pay Due','Balance','Source','Notes'];
+  var headers = ['Invoice #','Order Date','Dispensary','Contact','Qty (oz)','Total','Pay Status','Pay Method','Terms','Pay Due','Balance','Source','Notes'];
   var lines = [headers.join(',')];
   function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    lines.push([q(r.id),q(r.date),q(r.dispensary),q(r.contact),q(r.oz),q(r.total),q(r.payStatusOrig),q(r.ordStatus),q(r.paymethod),q(r.terms),q(r.paydue),q(r.balance),q(r.source),q(r.notes)].join(','));
+    lines.push([q(r.id),q(r.date),q(r.dispensary),q(r.contact),q(r.oz),q(r.total),q(r.payStatusOrig),q(r.paymethod),q(r.terms),q(r.paydue),q(r.balance),q(r.source),q(r.notes)].join(','));
   }
   var blob = new Blob([lines.join('\n')], {type:'text/csv'});
   var url = URL.createObjectURL(blob);
