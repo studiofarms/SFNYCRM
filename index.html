@@ -1909,7 +1909,7 @@ function getRevOrders(){
 }
 
 function rt_renderRevenue(){
-  var rev=getRevOrders();
+  var rev=getRevOrders().filter(function(o){return sfOwnsRep(o.salesrep);});
   var totalRev=rev.reduce(function(s,o){return s+o.total;},0);
   var paidRev=rev.filter(function(o){return o.paystatus==="Paid";}).reduce(function(s,o){return s+o.total;},0);
   var outstandingRev=totalRev-paidRev;
@@ -2008,13 +2008,14 @@ function rt_renderStats(){
   // Total Sales = unified across rt_orders + account-level orders (matches reports).
   // Other cards stay scoped to rt_orders (the order tracker only) since they describe
   // structured pay/order status which account-level entries don't have.
-  var allTime=getAllOrdersUnified().reduce(function(s,o){return s+(parseFloat(o.total)||0);},0);
-  var paid=rt_orders.filter(function(o){return o.paystatus==="Paid";}).reduce(function(s,o){return s+o.total;},0);
-  var outstnd=rt_orders.filter(function(o){return o.paystatus!=="Paid";}).reduce(function(s,o){return s+o.total;},0);
-  var overdue=rt_orders.filter(function(o){return o.paystatus!=="Paid"&&o.paydue&&o.paydue<today;}).length;
+  var _rt=rt_orders.filter(function(o){return sfOwnsRep(o.salesrep);});
+  var allTime=getAllOrdersUnified().filter(function(o){return sfOwnsRep(o.salesrep);}).reduce(function(s,o){return s+(parseFloat(o.total)||0);},0);
+  var paid=_rt.filter(function(o){return o.paystatus==="Paid";}).reduce(function(s,o){return s+o.total;},0);
+  var outstnd=_rt.filter(function(o){return o.paystatus!=="Paid";}).reduce(function(s,o){return s+o.total;},0);
+  var overdue=_rt.filter(function(o){return o.paystatus!=="Paid"&&o.paydue&&o.paydue<today;}).length;
   document.getElementById("stats").innerHTML=
     '<div class="stat"><div class="stat-label">Total Sales</div><div class="stat-val c-purple">$'+allTime.toLocaleString()+'</div><div class="stat-sub">All time, gross (all sources)</div></div>'+
-    '<div class="stat"><div class="stat-label">Total Orders</div><div class="stat-val c-blue">'+rt_orders.length+'</div><div class="stat-sub">In order tracker</div></div>'+
+    '<div class="stat"><div class="stat-label">Total Orders</div><div class="stat-val c-blue">'+_rt.length+'</div><div class="stat-sub">In order tracker</div></div>'+
     '<div class="stat"><div class="stat-label">Revenue Paid</div><div class="stat-val c-green">$'+paid.toLocaleString()+'</div><div class="stat-sub">Collected</div></div>'+
     '<div class="stat"><div class="stat-label">Outstanding</div><div class="stat-val c-amber">$'+outstnd.toLocaleString()+'</div><div class="stat-sub">Awaiting payment</div></div>'+
     '<div class="stat"><div class="stat-label">Overdue</div><div class="stat-val c-red">'+overdue+'</div><div class="stat-sub">Past due date</div></div>';
@@ -2064,6 +2065,7 @@ function getFiltered(){
   var pt=document.getElementById("filterPay").value;
   var tr=document.getElementById("filterTerms").value;
   return rt_orders.filter(function(o){
+    if(!sfOwnsRep(o.salesrep)) return false;
     var effPay=o.paystatus; // filter by the stored pay status the user set
     var mq=!q||(o.dispensary||"").toLowerCase().includes(q)||(o.id||"").toLowerCase().includes(q)||(o.name||"").toLowerCase().includes(q)||(o.email||"").toLowerCase().includes(q);
     return mq&&(!st||o.ordstatus===st)&&(!pt||effPay===pt)&&(!tr||o.terms===tr);
@@ -2634,7 +2636,7 @@ function saveOrder(){
     carrier:document.getElementById("f_carrier").value,
     link:document.getElementById("f_link").value,
     website:document.getElementById("f_website").value,
-    salesrep:document.getElementById("f_salesrep").value,
+    salesrep:document.getElementById("f_salesrep").value||(sfIsSales()?sfRep():""),
     notes:document.getElementById("f_notes").value
   };
   if(editIdx>=0) rt_orders[editIdx]=o; else rt_orders.unshift(o);
@@ -2876,8 +2878,16 @@ async function saveCommissionRate(pct){
 function syncRepDropdowns(){
   var sel=document.getElementById("repSelRep");
   var cur=sel.value;
-  sel.innerHTML='<option value="all">All Reps</option>'+reps.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join("");
-  if(cur)sel.value=cur;
+  if(sfIsSales()){
+    // Sales reps are locked to their own commission — no "All Reps", no others.
+    sel.innerHTML='<option value="'+sfRep()+'">'+sfRep()+'</option>';
+    sel.value=sfRep();
+    sel.disabled=true;
+  } else {
+    sel.innerHTML='<option value="all">All Reps</option>'+reps.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join("");
+    sel.disabled=false;
+    if(cur)sel.value=cur;
+  }
   var msel=document.getElementById("repSelMonth");
   var mcur=msel.value;
   var monthSet={};
@@ -3532,6 +3542,7 @@ function renderCompanies(){
   enriched = enriched.filter(function(x){
     var a = x.acct;
     if(!a || !a.name) return false;
+    if(sfIsSales() && (a.salesRep||'') !== sfRep()) return false;
     if(stageFilter && a.stage !== stageFilter) return false;
     if(ordersFilter === 'with-orders' && x.stats.count === 0) return false;
     if(ordersFilter === 'no-orders' && x.stats.count > 0) return false;
@@ -3737,7 +3748,7 @@ function saveCompanyModal(){
         license_exp: document.getElementById('cm-license-exp').value.trim(),
         notes:       document.getElementById('cm-notes').value
       },
-      salesRep: document.getElementById('cm-salesrep').value.trim(),
+      salesRep: document.getElementById('cm-salesrep').value.trim()||(sfIsSales()?sfRep():''),
       altContacts: []
     };
     accounts.push(newAcct);
@@ -8989,6 +9000,12 @@ function setOpStatus(val){
   render();
 }
 
+// --- Role-based visibility helpers (admin sees all; sales sees only own rep) ---
+function sfRole(){ return window.SF_ROLE || 'admin'; }
+function sfRep(){ return window.SF_REP || ''; }
+function sfIsSales(){ return sfRole()==='sales'; }
+function sfOwnsRep(rep){ return !sfIsSales() || ((rep||'') === sfRep()); }
+
 function getList(){
   var q=document.getElementById('search').value.toLowerCase();
   var fs=document.getElementById('filter-stage').value;
@@ -8998,6 +9015,7 @@ function getList(){
   var fr=frEl?frEl.value:'';
   var by=document.getElementById('sort-by').value;
   var list=accounts.filter(function(a){
+    if(sfIsSales() && (a.salesRep||'') !== sfRep()) return false;
     var tags=(a.tags||[]).join(' ').toLowerCase();
     var mq=!q||[a.name,a.location,a.address,a.contact,a.email,a.phone,tags].join(' ').toLowerCase().indexOf(q)!==-1;
     var mt=!ft||(a.tags && a.tags.indexOf(ft)!==-1);
@@ -9300,6 +9318,7 @@ function openReport(period) {
   for (var i = 0; i < allOrders.length; i++) {
     var o = allOrders[i];
     if (!inRange(o.date, range.start, range.end)) continue;
+    if (sfIsSales() && (o.salesrep||'') !== sfRep()) continue;
 
     var rev = parseFloat(o.total) || 0;
     var ps = o.paystatus || 'Pending';

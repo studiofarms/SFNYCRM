@@ -440,6 +440,14 @@
   async function start(session) {
     if (started) return;
     started = true;
+    // Role-based visibility: derive the signed-in user's role + rep name from
+    // their auth metadata. Admins (and anyone unset) see everything; sales reps
+    // only see rows assigned to their rep name. Defaults fail OPEN (admin).
+    try {
+      var _m = (session && session.user && session.user.user_metadata) || {};
+      window.SF_ROLE = (_m.team_role === 'sales') ? 'sales' : 'admin';
+      window.SF_REP = _m.rep_name || '';
+    } catch (e) { window.SF_ROLE = 'admin'; window.SF_REP = ''; }
     try {
       var data = await fetchAllWithRetry(4);
       if (!data.accounts.length && !data.orders.length) {
