@@ -2398,6 +2398,9 @@ function quickSet(i,f,v){
 }
 function quickSetPay(i,sel){
   rt_orders[i].paystatus=sel.value;
+  // Stamp the date an order is marked Paid (for payments-received reporting); clear if un-paid.
+  if(sel.value==='Paid'){ if(!rt_orders[i].paid_at) rt_orders[i].paid_at=new Date().toISOString().slice(0,10); }
+  else { rt_orders[i].paid_at=''; }
   sel.className="isel pay-"+sel.value.toLowerCase();
   persist();rt_renderStats();
 }
@@ -2639,6 +2642,10 @@ function saveOrder(){
     salesrep:document.getElementById("f_salesrep").value||(sfIsSales()?sfRep():""),
     notes:document.getElementById("f_notes").value
   };
+  // Preserve/refresh the Paid date used by payments-received reporting.
+  if(editIdx>=0 && rt_orders[editIdx] && rt_orders[editIdx].paid_at && !o.paid_at) o.paid_at=rt_orders[editIdx].paid_at;
+  if(o.paystatus==='Paid' && !o.paid_at) o.paid_at=new Date().toISOString().slice(0,10);
+  if(o.paystatus!=='Paid') o.paid_at='';
   if(editIdx>=0) rt_orders[editIdx]=o; else rt_orders.unshift(o);
   persist();
   // Auto-update account stage based on new order count
@@ -9301,6 +9308,42 @@ function inRange(dateStr, start, end) {
   return d >= start && d <= end;
 }
 
+// ---- Report helpers -------------------------------------------------------
+var RPT_STRAINS = ['Blue Nerdz','El Chivo','G41 x Grape Gas','Permanent Marker','Punch Breath','Rainbow Belts'];
+function rptMoney(n){ return '$'+(Math.round(n||0)).toLocaleString(); }
+function rptStat(n,l,color){ return '<div class="report-stat"><div class="report-stat-n"'+(color?' style="color:'+color+'"':'')+'>'+n+'</div><div class="report-stat-l">'+l+'</div></div>'; }
+// 2g cases parsed from order notes (approximate — notes are free text)
+function rptCount2gCases(notes){
+  if(!notes) return 0;
+  notes = String(notes);
+  var list = notes.match(/2g\s*cases?\s*:\s*([^.()]+)/i);
+  if(list){ return list[1].split(',').filter(function(s){return s.trim().length;}).length; }
+  var m = notes.match(/2g\b/gi);
+  return m ? m.length : 0;
+}
+// Sum flower oz mentioned for a strain, e.g. "Blue Nerdz 8oz" (approximate)
+function rptOzForStrain(notes, strain){
+  if(!notes) return 0;
+  try{
+    var esc = strain.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s*');
+    var re = new RegExp(esc+'\\s*(\\d+(?:\\.\\d+)?)\\s*oz','ig');
+    var t=0, mm;
+    while((mm=re.exec(notes))!==null){ t += parseFloat(mm[1])||0; }
+    return t;
+  }catch(e){ return 0; }
+}
+function rptWeekStart(dateStr){
+  var d = parseDate(dateStr); if(!d) return '';
+  var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate()-x.getDay());
+  return x.toISOString().slice(0,10);
+}
+function rptDaysOverdue(dueStr, todayStr){
+  var a=parseDate(dueStr), b=parseDate(todayStr);
+  if(!a||!b) return 0;
+  return Math.round((b-a)/86400000);
+}
+
 function openReport(period) {
   currentReportPeriod = period;
   var range = getReportRange(period);
@@ -9357,6 +9400,8 @@ function openReport(period) {
       balance: bal,
       isLate: isLate,
       notes: o.notes || '',
+      discount: parseFloat(o.discount)||0,
+      paidAt: o.paid_at || '',
       source: o._source || 'rt_orders'
     });
   }
@@ -9375,24 +9420,120 @@ function openReport(period) {
     return 'sp-none';
   };
 
+  // ===== Enhanced metrics =====
+  var totalOz = rows.reduce(function(s,r){return s+(parseFloat(r.oz)||0);},0);
+  var total2g = rows.reduce(function(s,r){return s+rptCount2gCases(r.notes);},0);
+  var collected = rows.filter(function(r){return r.payStatusOrig==='Paid';}).reduce(function(s,r){return s+r.total;},0);
+  var collRate = totalRev>0?Math.round(collected/totalRev*100):0;
+  var avgOrder = totalOrders?totalRev/totalOrders:0;
+
+  // Payments received in period (by paid date) + first-order-date per dispensary (all-time)
+  var recvSum=0, recvCount=0, firstOrder={};
+  allOrders.forEach(function(o){
+    if(sfIsSales() && (o.salesrep||'')!==sfRep()) return;
+    if(o.paid_at && inRange(o.paid_at, range.start, range.end)){ recvSum+=parseFloat(o.total)||0; recvCount++; }
+    var dsp=o.dispensary||'', dt=o.date||'';
+    if(dsp&&dt&&(!firstOrder[dsp]||dt<firstOrder[dsp])) firstOrder[dsp]=dt;
+  });
+
+  var activeSet={}; rows.forEach(function(r){ if(r.dispensary&&r.dispensary!=='-') activeSet[r.dispensary]=1; });
+  var activeAccts=Object.keys(activeSet).length;
+  var newAccts=Object.keys(activeSet).filter(function(d){return firstOrder[d]&&inRange(firstOrder[d],range.start,range.end);});
+  var repeatOrders=rows.filter(function(r){return firstOrder[r.dispensary]&&firstOrder[r.dispensary]<r.date;}).length;
+
+  var byDisp={}; rows.forEach(function(r){ if(r.dispensary&&r.dispensary!=='-') byDisp[r.dispensary]=(byDisp[r.dispensary]||0)+r.total; });
+  var topAccts=Object.keys(byDisp).map(function(k){return {name:k,rev:byDisp[k]};}).sort(function(a,b){return b.rev-a.rev;}).slice(0,5);
+
+  var byRep={}; rows.forEach(function(r){ var rp=(r.salesrep&&r.salesrep!=='-')?r.salesrep:'Unassigned'; if(!byRep[rp])byRep[rp]={sales:0,collected:0,orders:0}; byRep[rp].sales+=r.total; byRep[rp].orders++; if(r.payStatusOrig==='Paid')byRep[rp].collected+=r.total; });
+  var repRate=(typeof repCommissionRate==='function')?repCommissionRate():0.03;
+
+  var weeks={}; rows.forEach(function(r){ var w=rptWeekStart(r.date); if(!w)return; if(!weeks[w])weeks[w]={sales:0,orders:0,oz:0}; weeks[w].sales+=r.total; weeks[w].orders++; weeks[w].oz+=parseFloat(r.oz)||0; });
+  var weekKeys=Object.keys(weeks).sort().reverse();
+
+  var strainOz={}, anyStrain=false;
+  RPT_STRAINS.forEach(function(s){strainOz[s]=0;});
+  rows.forEach(function(r){ RPT_STRAINS.forEach(function(s){ var oz=rptOzForStrain(r.notes,s); if(oz>0){ strainOz[s]+=oz; anyStrain=true; } }); });
+
+  var aging={cur:0,d30:0,d60:0,d90:0};
+  rows.forEach(function(r){ if(r.payStatusOrig==='Paid')return; var bal=r.balance||0; var dd=(r.paydue&&r.paydue!=='-')?rptDaysOverdue(r.paydue,todayISOStr):0; if(dd<=0)aging.cur+=bal; else if(dd<=30)aging.d30+=bal; else if(dd<=60)aging.d60+=bal; else aging.d90+=bal; });
+
   var body = '';
 
-  // Summary stats
+  // Summary tiles
   body += '<div class="report-stat-row">';
-  body += '<div class="report-stat"><div class="report-stat-n" style="color:var(--green)">$'+totalRev.toLocaleString()+'</div><div class="report-stat-l">Total Sales</div></div>';
-  body += '<div class="report-stat"><div class="report-stat-n">'+totalOrders+'</div><div class="report-stat-l">Orders</div></div>';
-  body += '<div class="report-stat"><div class="report-stat-n" style="color:'+(totalOutstanding>0?'var(--red)':'var(--text)')+'">$'+totalOutstanding.toLocaleString()+'</div><div class="report-stat-l">Outstanding</div></div>';
-  body += '<div class="report-stat"><div class="report-stat-n" style="color:var(--amber)">'+late+'</div><div class="report-stat-l">Late Payments</div></div>';
+  body += rptStat(rptMoney(totalRev),'Total Sales','var(--green)');
+  body += rptStat(rptMoney(collected),'Collected','var(--green)');
+  body += rptStat(rptMoney(totalOutstanding),'Outstanding', totalOutstanding>0?'var(--red)':'var(--text)');
+  body += rptStat(totalOrders,'Orders','');
+  body += rptStat(totalOz.toLocaleString()+' oz','Flower oz*','');
+  body += rptStat(total2g,'2g Cases*','');
+  body += rptStat(rptMoney(avgOrder),'Avg Order','');
+  body += rptStat(newAccts.length,'New Accounts','var(--gold)');
   body += '</div>';
 
-  // Payment status breakdown
-  body += '<div class="report-section-title">Payment Breakdown</div>';
-  body += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">';
+  // Payments
+  body += '<div class="report-section-title">Payments</div>';
+  body += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">';
   body += '<span class="status-pill sp-paid">Paid: '+paid+'</span>';
   body += '<span class="status-pill sp-pending">Pending: '+pending+'</span>';
   body += '<span class="status-pill sp-late">Late: '+late+'</span>';
-  body += '<span class="status-pill sp-partial">Partial: '+partial+'</span>';
+  if(partial) body += '<span class="status-pill sp-partial">Partial: '+partial+'</span>';
   body += '</div>';
+  body += '<div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Collection rate: <b style="color:var(--green)">'+collRate+'%</b> — '+rptMoney(collected)+' collected of '+rptMoney(totalRev)+'.</div>';
+  body += '<div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Payments received in period (by paid date): <b>'+rptMoney(recvSum)+'</b> across '+recvCount+' order'+(recvCount===1?'':'s')+(recvCount===0?' <span style="color:var(--text3)">— mark orders Paid to start tracking timing</span>':'')+'.</div>';
+
+  // Weekly breakdown
+  if(weekKeys.length){
+    body += '<div class="report-section-title">Weekly Breakdown</div>';
+    body += '<table class="report-table"><thead><tr><th>Week of</th><th style="text-align:right">Orders</th><th style="text-align:right">Flower oz*</th><th style="text-align:right">Sales</th></tr></thead><tbody>';
+    weekKeys.forEach(function(w){ var wk=weeks[w]; body += '<tr><td style="font-family:monospace;font-size:11px">'+w+'</td><td style="text-align:right">'+wk.orders+'</td><td style="text-align:right;font-family:monospace">'+wk.oz.toLocaleString()+'</td><td style="text-align:right;color:var(--green);font-family:monospace">'+rptMoney(wk.sales)+'</td></tr>'; });
+    body += '</tbody></table>';
+  }
+
+  // Accounts
+  body += '<div class="report-section-title">Accounts</div>';
+  body += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">';
+  body += '<span class="status-pill sp-paid">New: '+newAccts.length+'</span>';
+  body += '<span class="status-pill sp-pending">Active: '+activeAccts+'</span>';
+  body += '<span class="status-pill sp-partial">Repeat orders: '+repeatOrders+'</span>';
+  body += '</div>';
+  if(topAccts.length){
+    body += '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 4px;">Top accounts by revenue</div>';
+    body += '<table class="report-table"><tbody>';
+    topAccts.forEach(function(a){ body += '<tr><td>'+a.name+'</td><td style="text-align:right;color:var(--green);font-family:monospace">'+rptMoney(a.rev)+'</td></tr>'; });
+    body += '</tbody></table>';
+  }
+
+  // By sales rep
+  var repKeys=Object.keys(byRep);
+  if(repKeys.length){
+    body += '<div class="report-section-title">By Sales Rep</div>';
+    body += '<table class="report-table"><thead><tr><th>Rep</th><th style="text-align:right">Orders</th><th style="text-align:right">Sales</th><th style="text-align:right">Collected</th><th style="text-align:right">Commission ('+(+(repRate*100).toFixed(2))+'%)</th></tr></thead><tbody>';
+    repKeys.sort(function(a,b){return byRep[b].sales-byRep[a].sales;}).forEach(function(rp){ var d=byRep[rp]; body += '<tr><td>'+rp+'</td><td style="text-align:right">'+d.orders+'</td><td style="text-align:right;font-family:monospace">'+rptMoney(d.sales)+'</td><td style="text-align:right;font-family:monospace;color:var(--green)">'+rptMoney(d.collected)+'</td><td style="text-align:right;font-family:monospace">'+rptMoney(d.collected*repRate)+'</td></tr>'; });
+    body += '</tbody></table>';
+  }
+
+  // Product mix by strain
+  if(anyStrain){
+    body += '<div class="report-section-title">Product Mix by Strain* (flower oz)</div>';
+    body += '<table class="report-table"><tbody>';
+    RPT_STRAINS.forEach(function(s){ if(strainOz[s]>0) body += '<tr><td>'+s+'</td><td style="text-align:right;font-family:monospace">'+strainOz[s].toLocaleString()+' oz</td></tr>'; });
+    body += '</tbody></table>';
+  }
+
+  // Receivables aging
+  var agingTotal=aging.cur+aging.d30+aging.d60+aging.d90;
+  if(agingTotal>0){
+    body += '<div class="report-section-title">Receivables Aging</div>';
+    body += '<table class="report-table"><thead><tr><th>Bucket</th><th style="text-align:right">Amount</th></tr></thead><tbody>';
+    body += '<tr><td>Not yet due</td><td style="text-align:right;font-family:monospace">'+rptMoney(aging.cur)+'</td></tr>';
+    body += '<tr><td>1–30 days overdue</td><td style="text-align:right;font-family:monospace;color:var(--amber)">'+rptMoney(aging.d30)+'</td></tr>';
+    body += '<tr><td>31–60 days overdue</td><td style="text-align:right;font-family:monospace;color:var(--red)">'+rptMoney(aging.d60)+'</td></tr>';
+    body += '<tr><td>60+ days overdue</td><td style="text-align:right;font-family:monospace;color:var(--red)">'+rptMoney(aging.d90)+'</td></tr>';
+    body += '</tbody></table>';
+  }
+
+  body += '<div style="font-size:10px;color:var(--text3);margin:8px 0 18px;">* Flower oz, 2g cases, and strain mix are parsed from order notes and are approximate.</div>';
 
   // Orders table
   body += '<div class="report-section-title">Order Details</div>';
@@ -9441,13 +9582,21 @@ function closeReport() { document.getElementById('report-bg').classList.remove('
 function downloadReportCSV() {
   var range = getReportRange(currentReportPeriod);
   var rows = currentReportData;
-  var headers = ['Invoice #','Order Date','Dispensary','Contact','Qty (oz)','Total','Pay Status','Pay Method','Terms','Pay Due','Balance','Source','Notes'];
+  var headers = ['Invoice #','Order Date','Dispensary','Contact','Qty (oz)','2g Cases','Total','Pay Status','Paid On','Pay Method','Terms','Pay Due','Balance','Sales Rep','Source','Notes'];
   var lines = [headers.join(',')];
   function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+  var sumTotal=0, sumOz=0, sumCases=0, sumCollected=0, sumOutstanding=0;
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    lines.push([q(r.id),q(r.date),q(r.dispensary),q(r.contact),q(r.oz),q(r.total),q(r.payStatusOrig),q(r.paymethod),q(r.terms),q(r.paydue),q(r.balance),q(r.source),q(r.notes)].join(','));
+    var cs = rptCount2gCases(r.notes);
+    sumTotal+=r.total; sumOz+=parseFloat(r.oz)||0; sumCases+=cs;
+    if(r.payStatusOrig==='Paid') sumCollected+=r.total; else sumOutstanding+=r.balance;
+    lines.push([q(r.id),q(r.date),q(r.dispensary),q(r.contact),q(r.oz),q(cs),q(r.total),q(r.payStatusOrig),q(r.paidAt),q(r.paymethod),q(r.terms),q(r.paydue),q(r.balance),q(r.salesrep),q(r.source),q(r.notes)].join(','));
   }
+  lines.push('');
+  lines.push([q('TOTALS'),q(''),q(''),q(''),q(sumOz),q(sumCases),q(sumTotal),q(''),q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  lines.push([q('Collected'),q(sumCollected)].join(','));
+  lines.push([q('Outstanding'),q(sumOutstanding)].join(','));
   var blob = new Blob([lines.join('\n')], {type:'text/csv'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');

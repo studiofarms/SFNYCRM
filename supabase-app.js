@@ -137,7 +137,7 @@
   }
   var ORDER_KEYS = ['date','delivery','paydue','dispensary','dba','license','name',
     'email','phone','addr','paymethod','terms','paystatus','ordstatus','track',
-    'carrier','link','website','salesrep','notes'];
+    'carrier','link','website','salesrep','notes','paid_at'];
 
   function orderToRow(o) {
     var row = {
