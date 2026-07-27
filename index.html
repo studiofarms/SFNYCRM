@@ -964,7 +964,7 @@ function checkPw(){
 </div>
 
 <!-- MAP VIEW -->
-<div id="map-view" style="display:none;flex-direction:column;height:calc(100vh - 110px);"><div style="display:flex;gap:8px;padding:8px 14px;flex-shrink:0;align-items:center;flex-wrap:wrap;"><select class="ctl" id="map-region-filter" onchange="renderMap()"><option value="">All Regions</option><option value="brooklyn">Brooklyn</option><option value="queens">Queens</option><option value="manhattan">Manhattan</option><option value="bronx">Bronx</option><option value="staten-island">Staten Island</option><option value="long-island">Long Island</option><option value="mid-hudson">Mid-Hudson</option><option value="western-new-york">Western NY</option><option value="capital-district">Capital District</option><option value="rochester">Rochester</option><option value="central-new-york">Central NY</option><option value="southern-tier">Southern Tier</option></select><select class="ctl" id="map-stage-filter" onchange="renderMap()"><option value="">All Stages</option><option value="Repeat">Repeat</option><option value="First Order">First Order</option><option value="Sampled">Sampled</option><option value="Prospecting">Prospecting</option><option value="Churned">Churned</option></select><input type="text" id="map-search" class="ctl" placeholder="🔍 Search dispensary, address, contact..." oninput="renderMap()" style="min-width:240px;flex:1;max-width:340px;background:#0c0c0a;border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;"><button onclick="document.getElementById('map-search').value='';renderMap();" style="background:#0c0c0a;border:1px solid var(--border);color:var(--text3);padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;" title="Clear search">✕</button><span id="map-count" style="font-size:12px;color:var(--text3);"></span></div><div id="crm-map" style="flex:1;min-height:500px;"></div></div>
+<div id="map-view" style="display:none;flex-direction:column;height:calc(100vh - 110px);"><div style="display:flex;gap:8px;padding:8px 14px;flex-shrink:0;align-items:center;flex-wrap:wrap;"><select class="ctl" id="map-region-filter" onchange="renderMap()"><option value="">All Regions</option><option value="brooklyn">Brooklyn</option><option value="queens">Queens</option><option value="manhattan">Manhattan</option><option value="bronx">Bronx</option><option value="staten-island">Staten Island</option><option value="long-island">Long Island</option><option value="mid-hudson">Mid-Hudson</option><option value="western-new-york">Western NY</option><option value="capital-district">Capital District</option><option value="rochester">Rochester</option><option value="central-new-york">Central NY</option><option value="southern-tier">Southern Tier</option></select><select class="ctl" id="map-stage-filter" onchange="renderMap()"><option value="">All Stages</option><option value="Repeat">Repeat</option><option value="First Order">First Order</option><option value="Sampled">Sampled</option><option value="Prospecting">Prospecting</option><option value="Churned">Churned</option></select><button class="ctl" id="map-bm-btn" onclick="toggleMapBookmarkFilter()" title="Show bookmarked dispensaries only" style="cursor:pointer;background:#0c0c0a;border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;">&#9734; Bookmarked</button><input type="text" id="map-search" class="ctl" placeholder="🔍 Search dispensary, address, contact..." oninput="renderMap()" style="min-width:240px;flex:1;max-width:340px;background:#0c0c0a;border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;"><button onclick="document.getElementById('map-search').value='';renderMap();" style="background:#0c0c0a;border:1px solid var(--border);color:var(--text3);padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;" title="Clear search">✕</button><span id="map-count" style="font-size:12px;color:var(--text3);"></span></div><div id="crm-map" style="flex:1;min-height:500px;"></div></div>
 
 <!-- ROUTE PLANNER VIEW -->
 <div id="route-view" style="display:none;padding:16px 1.5rem;">
@@ -9169,6 +9169,7 @@ function render(){
       var revHTML=rev>0?'<span class="rev-cell has-rev">$'+rev.toLocaleString()+'</span>':'<span class="rev-cell">-</span>';
       var sc=STAGE_CLASS[a.stage]||'s-prospecting';
       var siteHTML=a.website?'<a class="site-link" href="'+a.website+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><span>'+domain(a.website)+'</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>':'<span style="color:var(--text3)">-</span>';
+      if(a.details&&a.details.contact_url){siteHTML+=' <a class="site-link" href="'+a.details.contact_url+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Contact page" style="color:var(--green)"><span>&#9993; contact</span></a>';}
       var tagsSnippet='';
       if(a.tags&&a.tags.length)tagsSnippet='<div style="margin-top:2px">'+a.tags.slice(0,2).map(function(t){return'<span style="font-size:10px;background:var(--surface3);border:1px solid var(--border);border-radius:99px;padding:1px 6px;color:var(--text3);margin-right:3px">'+t+'</span>';}).join('')+'</div>';
       var le=lastEmailed(a);
@@ -10285,6 +10286,52 @@ function _acctLatLng(a) {
   return null;
 }
 
+// ── Map tools: contact links, bookmarks, outreach log ───────────────────────
+function _contactUrl(a){
+  var u=(a.details&&(a.details.contact_url||a.details.contactUrl))||'';
+  if(!u&&a.website)u=a.website;
+  if(u&&!/^https?:/i.test(u))u='https://'+u;
+  return u;
+}
+function _isBookmarked(a){return !!(a.tags&&a.tags.indexOf('bookmarked')!==-1);}
+function toggleBookmark(id){
+  var a=accounts.find(function(x){return x.id===id;});
+  if(!a)return;
+  a.tags=a.tags||[];
+  var i=a.tags.indexOf('bookmarked');
+  if(i===-1)a.tags.push('bookmarked');else a.tags.splice(i,1);
+  save();
+  renderMap();
+}
+function _lastOutreach(a){
+  var acts=(a.activity||[]).filter(function(x){return x&&x.type==='outreach';});
+  if(!acts.length)return null;
+  acts.sort(function(x,y){return String(y.date||'').localeCompare(String(x.date||''));});
+  return acts[0];
+}
+function logOutreach(id){
+  var a=accounts.find(function(x){return x.id===id;});
+  if(!a)return;
+  var note=prompt('Log outreach for '+a.name+'\n(call / text / visit / email / dropped samples...)','');
+  if(note===null)return;
+  var d=new Date();
+  var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.activity=a.activity||[];
+  a.activity.push({type:'outreach',date:ds,text:note||'outreach',rep:(window.SF_REP||window.SF_ROLE||'')});
+  save();
+  renderMap();
+}
+function toggleMapBookmarkFilter(){
+  window._mapBmOnly=!window._mapBmOnly;
+  var b=document.getElementById('map-bm-btn');
+  if(b){
+    b.textContent=(window._mapBmOnly?'★':'☆')+' Bookmarked';
+    b.style.color=window._mapBmOnly?'#fbbf24':'';
+    b.style.borderColor=window._mapBmOnly?'#fbbf24':'';
+  }
+  renderMap();
+}
+
 // Background refinement: geocode street addresses (Nominatim, 1 req/sec,
 // results cached in localStorage forever) and glide markers from their
 // ZIP-centroid position to the exact address. Max N lookups per map view;
@@ -10453,6 +10500,7 @@ function renderMap() {
     if (a.stage === 'Merged') return false;
     if (region && !(a.tags && a.tags.indexOf(region) !== -1)) return false;
     if (stageF && a.stage !== stageF) return false;
+    if (window._mapBmOnly && !_isBookmarked(a)) return false;
     // Free-text search across name, address, contact, email, phone, website, notes
     if (q) {
       var hay = ((a.name||'') + ' ' + (a.address||'') + ' ' + (a.location||'') + ' ' +
@@ -10508,16 +10556,24 @@ function renderMap() {
     }
     var col = _markerColor(a, SC[a.stage] || '#6fa8d4');
 
-    var pop = "<div style='font-family:sans-serif;min-width:200px;padding:6px;'>"
-      + "<b style='font-size:13px;display:block;margin-bottom:4px;'>" + a.name + "</b>"
+    var cu = _contactUrl(a);
+    var lo = _lastOutreach(a);
+    var pop = "<div style='font-family:sans-serif;min-width:210px;padding:6px;'>"
+      + "<div style='display:flex;align-items:center;gap:6px;margin-bottom:4px;'>"
+        + "<button onclick='toggleBookmark(" + a.id + ")' title='Bookmark' style='background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;color:" + (_isBookmarked(a) ? "#fbbf24" : "#555") + ";'>" + (_isBookmarked(a) ? "&#9733;" : "&#9734;") + "</button>"
+        + "<b style='font-size:13px;'>" + a.name + "</b>"
+      + "</div>"
       + (a.address ? "<div style='font-size:12px;margin-bottom:3px;'><a href='" + mapsUrl(a.name, a.address).replace(/'/g,"%27") + "' target='_blank' style='color:#aaa;text-decoration:none;' title='Open in Google Maps'>&#128205; " + a.address + "</a></div>" : "")
       + (a.phone   ? "<div style='font-size:12px;margin-bottom:3px;'><a href='tel:" + a.phone + "' style='color:#c8a96e;text-decoration:none;'>&#128222; " + a.phone + "</a></div>" : "")
       + (a.website ? "<div style='font-size:12px;margin-bottom:3px;'><a href='" + a.website + "' target='_blank' style='color:#6fa8d4;text-decoration:none;'>&#127760; " + a.website.replace('https://','').replace('www.','').split('/')[0] + "</a></div>" : "")
+      + (cu ? "<div style='font-size:12px;margin-bottom:3px;'><a href='" + cu + "' target='_blank' style='color:#6db87a;text-decoration:none;font-weight:600;'>&#9993; Contact page &#8599;</a></div>" : "")
       + (a.contact ? "<div style='font-size:12px;color:#aaa;margin-bottom:3px;'>&#128100; " + a.contact + "</div>" : "")
-      + "<div style='margin-top:6px;display:flex;align-items:center;gap:6px;'>"
+      + (lo ? "<div style='font-size:11px;color:#fbbf24;margin-bottom:3px;'>&#128339; Last outreach " + lo.date + (lo.text ? " — " + String(lo.text).slice(0,60).replace(/</g,'&lt;') : "") + "</div>" : "")
+      + "<div style='margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;'>"
         + "<span style='background:" + col + ";color:#000;font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600;'>" + (a.stage||'') + "</span>"
-        + (_isChain(a) ? "&nbsp;<span style='background:#9aff5e;color:#000;font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600;'>CHAIN</span>" : "")
+        + (_isChain(a) ? "<span style='background:#9aff5e;color:#000;font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600;'>CHAIN</span>" : "")
         + (a.email ? "<button onclick='openEmail(" + a.id + ")' style='font-size:11px;padding:3px 10px;background:#c8a96e;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:600;'>&#9993; Email</button>" : "")
+        + "<button onclick='logOutreach(" + a.id + ")' style='font-size:11px;padding:3px 10px;background:#3b3f52;color:#e5e7eb;border:none;border-radius:5px;cursor:pointer;font-weight:600;'>&#128221; Log outreach</button>"
       + "</div>"
       + "</div>";
 
