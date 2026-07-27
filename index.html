@@ -10420,10 +10420,19 @@ function renderMap() {
 
   var SC = {'Repeat':'#6db87a','First Order':'#c8a96e','Sampled':'#f59e0b','Prospecting':'#6fa8d4','Churned':'#9a948a'};
 
+  // Accounts sharing a ZIP land on the same centroid and stack into one dot.
+  // Spread them on a small golden-angle spiral (~300-500m) so each is visible.
+  var _zipSeen = {};
   list.forEach(function(a) {
     var z = ((a.address||'') + ' ' + (a.location||'')).match(/([0-9]{5})/);
     if (!z || !ZIP_COORDS[z[1]]) return;
     var ll = ZIP_COORDS[z[1]];
+    var n = _zipSeen[z[1]] = (_zipSeen[z[1]] || 0) + 1;
+    if (n > 1) {
+      var ang = (n - 1) * 2.39996;
+      var r = 0.0032 * Math.sqrt(n - 1);
+      ll = [ll[0] + r * Math.cos(ang), ll[1] + r * Math.sin(ang)];
+    }
     var col = _markerColor(a, SC[a.stage] || '#6fa8d4');
 
     var pop = "<div style='font-family:sans-serif;min-width:200px;padding:6px;'>"
