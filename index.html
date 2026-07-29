@@ -10332,42 +10332,99 @@ function toggleMapBookmarkFilter(){
   renderMap();
 }
 
-// Background refinement: geocode street addresses (Nominatim, 1 req/sec,
-// results cached in localStorage forever) and glide markers from their
-// ZIP-centroid position to the exact address. Max N lookups per map view;
-// coverage completes progressively as the map is used.
+// Background refinement: geocode street addresses to exact positions and
+// glide markers from ZIP-centroid to the address. Photon (fast) first,
+// Nominatim as fallback. Results persist BOTH in localStorage and in a
+// shared Supabase table (geo_cache) so one teammate's map view fixes the
+// pins for everyone, permanently.
 var _refineTimer = null;
+var _geoFailed = {};          // addresses that failed this session — don't retry
+var _geoSharedLoaded = false;
+
+function _saveGeoLocal() {
+  try { localStorage.setItem('sfcrm_geo', JSON.stringify(_geoCache)); } catch(e){}
+}
+function _loadSharedGeo(cb) {
+  if (_geoSharedLoaded || !window.sbClient) { if (cb) cb(); return; }
+  _geoSharedLoaded = true;
+  window.sbClient.from('geo_cache').select('addr,lat,lng').limit(2000)
+    .then(function(res) {
+      (res.data || []).forEach(function(r) {
+        if (r.addr && r.lat && r.lng) _geoCache[r.addr] = [r.lat, r.lng];
+      });
+      _saveGeoLocal();
+      if (cb) cb();
+    }, function(){ if (cb) cb(); });
+}
+function _pushSharedGeo(addr, ll) {
+  if (!window.sbClient) return;
+  try {
+    window.sbClient.from('geo_cache')
+      .upsert({addr: addr, lat: ll[0], lng: ll[1]})
+      .then(function(){}, function(){});
+  } catch(e){}
+}
+function _geocodeOne(addr, done) {
+  // Photon (komoot) — fast, no strict rate limit
+  fetch('https://photon.komoot.io/api/?limit=1&q=' + encodeURIComponent(addr))
+    .then(function(r){ return r.json(); })
+    .then(function(gj) {
+      var f = gj && gj.features && gj.features[0];
+      if (f && f.geometry && f.properties &&
+          (f.properties.countrycode === 'US' || f.properties.country === 'United States')) {
+        var c = f.geometry.coordinates;           // [lon, lat]
+        done([c[1], c[0]]); return;
+      }
+      // Fallback: Nominatim
+      fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(addr))
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          if (data && data[0]) done([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+          else done(null);
+        })
+        .catch(function(){ done(null); });
+    })
+    .catch(function(){ done(null); });
+}
 function _refineMarkers() {
   if (_refineTimer) { clearTimeout(_refineTimer); _refineTimer = null; }
-  var queue = [];
-  for (var i = 0; i < _markers.length; i++) {
-    var m = _markers[i], a = m._sfAcct;
-    if (!a) continue;
-    var addr = (a.address||'').trim();
-    // needs a street-looking address (leading number) and no cached fix yet
-    if (!addr || _geoCache[addr] || !/^\d/.test(addr)) continue;
-    queue.push(m);
-    if (queue.length >= 30) break;
-  }
-  var qi = 0;
-  function next() {
-    if (qi >= queue.length) return;
-    var m = queue[qi++], a = m._sfAcct, addr = a.address.trim();
-    var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(addr);
-    fetch(url)
-      .then(function(r){ return r.json(); })
-      .then(function(data) {
-        if (data && data[0]) {
-          var ll = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+  _loadSharedGeo(function() {
+    var queue = [];
+    for (var i = 0; i < _markers.length; i++) {
+      var m = _markers[i], a = m._sfAcct;
+      if (!a) continue;
+      var addr = (a.address||'').trim();
+      // needs a street-looking address (leading number), not cached, not failed
+      if (!addr || _geoCache[addr] || _geoFailed[addr] || !/^\d/.test(addr)) continue;
+      // apply any cache hit that arrived from the shared load
+      queue.push(m);
+      if (queue.length >= 120) break;
+    }
+    // shared cache may have fixed markers already on screen — snap them now
+    for (var j = 0; j < _markers.length; j++) {
+      var mk = _markers[j], ac = mk._sfAcct;
+      if (ac && ac.address && _geoCache[ac.address.trim()] && _crmMap && _crmMap.hasLayer(mk)) {
+        mk.setLatLng(_geoCache[ac.address.trim()]);
+      }
+    }
+    var qi = 0;
+    function next() {
+      if (qi >= queue.length) return;
+      var m = queue[qi++], a = m._sfAcct, addr = a.address.trim();
+      _geocodeOne(addr, function(ll) {
+        if (ll) {
           _geoCache[addr] = ll;
-          try { localStorage.setItem('sfcrm_geo', JSON.stringify(_geoCache)); } catch(e){}
+          _saveGeoLocal();
+          _pushSharedGeo(addr, ll);
           if (_crmMap && _crmMap.hasLayer(m)) m.setLatLng(ll);
+        } else {
+          _geoFailed[addr] = 1;
         }
-      })
-      .catch(function(){})
-      .finally(function(){ _refineTimer = setTimeout(next, 1150); });
-  }
-  next();
+        _refineTimer = setTimeout(next, 400);
+      });
+    }
+    next();
+  });
 }
 var _markers = [];
 
