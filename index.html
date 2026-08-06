@@ -4095,6 +4095,7 @@ function revelryCreate(idx){
       <button class="etpl-btn tpl-revelry" id="tpl-btn-revelry" onclick="setTemplate('revelry')">&#127867; Revelry Follow-Up</button>
       <button class="etpl-btn" id="tpl-btn-followup" onclick="setTemplate('followup')">Post-Visit Follow-up</button>
       <button class="etpl-btn" id="tpl-btn-samples" onclick="setTemplate('samples')">Samples Dropped Off</button>
+      <button class="etpl-btn" id="tpl-btn-menu" onclick="setTemplate('menu')">&#128196; Menu (1oz + 2g)</button>
       <button class="etpl-btn" id="tpl-btn-reorder" onclick="setTemplate('reorder')">Reorder Nudge</button>
       <button class="etpl-btn tpl-late" id="tpl-btn-late" onclick="setTemplate('late')">Late Payment</button>
       <button class="etpl-btn" id="tpl-btn-reengage" onclick="setTemplate('reengage')">Re-engagement</button>
@@ -8718,6 +8719,33 @@ function buildEmailBody(a,template){
       +'No pressure at all - just wanted to put it on your radar in case the timing is better now. Happy to bring by a sample or send over the full menu.\n\n'
       +'Would love to reconnect.';
 
+  } else if(tpl==='previsit'){
+    subject='Stopping by '+a.name+' this week — Studio Farms NY';
+    body='Hi '+fn+',\n\n'
+      +'I\'m going to be in the area this week and would love to swing by '+a.name+' — happy to bring samples and our current menu.\n\n'
+      +'We\'re running six strains right now (Permanent Marker, Blue Nerdz, Punch Breath, G41 x Grape Gas, Rainbow Belts, El Chivo) at $80/oz, plus 2g prepack cases.\n\n'
+      +'What day/time works best for you? You can also call or text me directly at (630) 815-7088.\n\n'
+      +'Best,\nAndrew';
+
+  } else if(tpl==='menu'){
+    subject='Studio Farms — current menu';
+    body='Hey '+fn+',\n\n'
+      +'Here\'s what we\'ve got right now — premium greenhouse flower out of Kingston, NY:\n\n'
+      +'STRAINS\n'
+      +'  - Blue Nerdz (Indica)\n'
+      +'  - El Chivo\n'
+      +'  - G41 x Grape Gas\n'
+      +'  - Permanent Marker\n'
+      +'  - Punch Breath\n'
+      +'  - Rainbow Belts\n\n'
+      +'FORMATS & PRICING\n'
+      +'  - 1oz bulk flower — $80/oz\n'
+      +'  - 2g prepack cases — 50 units/case, $8.20/unit ($410/case)\n'
+      +'    (great shelf velocity — the 2g hits a price point walk-ins actually grab)\n\n'
+      +'First order gets 10% off, and we include samples so your budtenders can try before they sell.\n'
+      +'Reply with strains + quantities and we\'ll get you on this week\'s delivery run.\n\n'
+      +'— Studio Farms NY team';
+
   } else if(tpl==='revelry'){
     subject='Great meeting you at Revelry — Studio Farms NY';
     body='Hi '+fn+',\n\n'
@@ -8732,11 +8760,11 @@ function buildEmailBody(a,template){
 
 function setTemplate(tpl){
   currentTemplate=tpl;
-  var btns=['outreach','followup','samples','reorder','late','reengage'];
-  for(var i=0;i<btns.length;i++){
-    var btn=document.getElementById('tpl-btn-'+btns[i]);
+  var btnClasses={outreach:'',previsit:' tpl-previsit',revelry:' tpl-revelry',followup:'',samples:'',menu:'',reorder:'',late:' tpl-late',reengage:''};
+  for(var k in btnClasses){
+    var btn=document.getElementById('tpl-btn-'+k);
     if(btn){
-      btn.className='etpl-btn'+(btns[i]==='late'?' tpl-late':'')+(btns[i]===tpl?' active':'');
+      btn.className='etpl-btn'+btnClasses[k]+(k===tpl?' active':'');
     }
   }
   if(emailAcct)populateEmailModal(emailAcct,tpl);
@@ -8769,7 +8797,7 @@ function logEmailSent(subject){
   if(!emailAcct)return;
   var a=emailAcct;
   if(!a.activity)a.activity=[];
-  var tplLabels={'outreach':'First Outreach','followup':'Post-Visit','samples':'Samples Drop','reorder':'Reorder','late':'Late Payment','reengage':'Re-engagement'};
+  var tplLabels={'outreach':'First Outreach','previsit':'Pre-Visit','revelry':'Revelry Follow-Up','followup':'Post-Visit','samples':'Samples Drop','menu':'Menu Sent','reorder':'Reorder','late':'Late Payment','reengage':'Re-engagement'};
   a.activity.unshift({
     type:'email',
     text:'Email sent: '+subject,
