@@ -3330,6 +3330,29 @@ var EMAIL_TEMPLATES = [
     }
   },
   {
+    label: "📄 Current Menu (1oz + 2g)",
+    key: "menu_2g",
+    subject: function(o){ return "Studio Farms — current menu"; },
+    body: function(o){
+      return "Hey " + (o.name||"there") + ",\n\n" +
+        "Here's what we've got right now — premium greenhouse flower out of Kingston, NY:\n\n" +
+        "STRAINS\n" +
+        "  • Blue Nerdz (Indica)\n" +
+        "  • El Chivo\n" +
+        "  • G41 x Grape Gas\n" +
+        "  • Permanent Marker\n" +
+        "  • Punch Breath\n" +
+        "  • Rainbow Belts\n\n" +
+        "FORMATS & PRICING\n" +
+        "  • 1oz bulk flower — $80/oz\n" +
+        "  • 2g prepack cases — 50 units/case, $8.20/unit ($410/case)\n" +
+        "    (great shelf velocity — the 2g hits a price point walk-ins actually grab)\n\n" +
+        "First order gets 10% off, and we include samples so your budtenders can try before they sell.\n" +
+        "Reply with strains + quantities and we'll get you on this week's delivery run.\n\n" +
+        "— Studio Farms NY team";
+    }
+  },
+  {
     label: "🚀 New Strain Launch",
     key: "strain_launch",
     subject: function(o){ return "New strain drop — first look"; },
