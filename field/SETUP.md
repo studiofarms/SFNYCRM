@@ -1,32 +1,84 @@
 # Studio Farms Field — setup
 
-Do these in order. About 30 minutes the first time.
+## What is already done
 
-## 1. Supabase project
-1. supabase.com → New project (any region; US East is closest to the Hudson Valley).
-2. SQL Editor → paste all of `supabase/schema.sql` → Run.
-3. Still in SQL Editor: edit the `insert into allowed_emails` block at the bottom with the team's real Gmail addresses (the ones they'll sign in with), run just that block again. You're the `is_admin = true` one.
-4. Project Settings → API → copy the **Project URL** and the **anon public** key into `CONFIG` at the top of `index.html`.
+| Piece | Status |
+| --- | --- |
+| Supabase project `sfny-field` (`susmoduqktplzgzqrcti`, us-east-2) | created |
+| `supabase/schema.sql` applied — 10 tables, RLS on all of them, 36 policies | done |
+| Storage buckets `shift-photos` and `gallery` (private, signed URLs) | created |
+| `CONFIG.SUPABASE_URL` / `CONFIG.SUPABASE_ANON` in `index.html` | filled in |
+| Roster seeded with `andrew@studiofarmsny.com` as admin | done |
+| Netlify site `sfny-field` → https://sfny-field.netlify.app | created, not yet deployed |
 
-## 2. Google sign-in + Calendar
-1. Google Cloud Console → new project → APIs & Services → Enable **Google Calendar API**.
-2. OAuth consent screen → External → add scopes `.../auth/userinfo.email`, `.../auth/userinfo.profile`, `https://www.googleapis.com/auth/calendar.events`. Add each rep's email as a test user (or publish the app later).
-3. Credentials → Create OAuth client ID → Web application.
-   - Authorized redirect URI: `https://YOUR-PROJECT.supabase.co/auth/v1/callback` (Supabase shows you this exact string under Authentication → Providers → Google).
-4. Supabase → Authentication → Providers → Google → enable, paste Client ID + Client Secret.
-5. Supabase → Authentication → URL Configuration → add your Netlify site URL to **Redirect URLs** (e.g. `https://sf-field.netlify.app`).
+Project URL: `https://susmoduqktplzgzqrcti.supabase.co`
+Dashboard: https://supabase.com/dashboard/project/susmoduqktplzgzqrcti
 
-## 3. Netlify
-1. Zip this whole folder (index.html, netlify.toml, netlify/) and drag it onto Netlify → Sites. Or connect a repo.
-2. Site configuration → Environment variables, add:
-   - `ANTHROPIC_API_KEY` — from console.anthropic.com (this powers "Write the recap")
-   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — same ones from step 2.3 (keeps Calendar connected past the first hour)
-3. Redeploy after adding env vars.
+## What still needs you
 
-## 4. Test
-- Sign in as yourself. If you land on "Not on the roster", the email you signed in with isn't in `allowed_emails` — fix the spelling and re-run that block.
-- Book a pop-up. It should show a "synced" pill and appear in your Google Calendar within seconds.
-- Week tab → "Write the recap". If it errors, check `ANTHROPIC_API_KEY` is set and you redeployed.
+These four can't be done from an agent session — they need the Netlify and
+Google consoles.
+
+### 1. Connect the repo to Netlify (one time, ~1 minute)
+
+https://app.netlify.com/projects/sfny-field → **Project configuration → Build &
+deploy → Link repository** → pick `studiofarms/sfnycrm`, then set:
+
+- **Branch to deploy:** `claude/netlify-supabase-hosting-kzmvau` (switch to `main` once merged)
+- **Base directory:** `field`
+- **Build command:** *(leave empty)*
+- **Publish directory:** `field`
+- **Functions directory:** `field/netlify/functions`
+
+After that every push to the branch deploys automatically. The `netlify.toml`
+inside `field/` already declares publish and functions, so the UI fields just
+need to agree with it.
+
+### 2. Netlify environment variables
+
+Project configuration → Environment variables:
+
+- `ANTHROPIC_API_KEY` — from console.anthropic.com. Powers "Write the recap".
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — from step 3 below. Without
+  these, Calendar sync dies after an hour and reps have to sign out and back in.
+
+Redeploy after adding them — functions only pick up env vars on a new deploy.
+
+### 3. Google sign-in + Calendar
+
+1. Google Cloud Console → new project → APIs & Services → enable **Google Calendar API**.
+2. OAuth consent screen → External → add scopes `.../auth/userinfo.email`,
+   `.../auth/userinfo.profile`, `https://www.googleapis.com/auth/calendar.events`.
+   Add each rep's email as a test user (or publish the app).
+3. Credentials → Create OAuth client ID → Web application → authorized redirect URI:
+   `https://susmoduqktplzgzqrcti.supabase.co/auth/v1/callback`
+4. Supabase → Authentication → Providers → Google → enable, paste Client ID + Secret.
+5. Supabase → Authentication → URL Configuration → add `https://sfny-field.netlify.app`
+   to **Site URL** and **Redirect URLs**.
+
+### 4. Add the rest of the roster
+
+Only Andrew is on it. In the Supabase SQL editor, edit and run the
+`insert into allowed_emails` block at the bottom of `supabase/schema.sql` with
+each rep's real Google sign-in address. Anyone not in that table can sign in
+but sees "Not on the roster".
+
+## Why its own Supabase project
+
+The CRM project (`sfny-crm`) already has `orders` and `products` tables with
+completely different columns. Because `schema.sql` uses
+`create table if not exists`, running it there would have silently skipped
+those two and left the field app reading the CRM's tables — broken in a way
+that wouldn't surface until someone logged an order.
+
+## Test
+
+- Sign in as yourself. "Not on the roster" means the address you signed in with
+  isn't in `allowed_emails` — fix the spelling and re-run that block.
+- Book a pop-up. It should show a "synced" pill and appear in Google Calendar
+  within seconds.
+- Week tab → "Write the recap". An error here means `ANTHROPIC_API_KEY` is
+  missing or you haven't redeployed since setting it.
 
 ## Already ran an older schema.sql?
 Just run the new one again. Every statement is `if not exists` / `add column if not exists`, so it only adds what's missing (shops, samples, gallery_photos, new columns, the gallery bucket).

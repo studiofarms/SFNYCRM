@@ -164,18 +164,35 @@ create index if not exists deals_rep_idx    on deals (rep_email, updated_at desc
 create index if not exists popups_when_idx  on popups (starts_at);
 
 -- Helpers used by every policy.
+-- search_path is pinned: these are SECURITY DEFINER and every RLS policy calls
+-- them, so a caller-controlled search_path would be a privilege-escalation hole.
 create or replace function jwt_email() returns text
-  language sql stable as $$ select lower(coalesce(auth.jwt() ->> 'email', '')) $$;
+  language sql stable
+  set search_path = public, pg_temp
+  as $$ select lower(coalesce(auth.jwt() ->> 'email', '')) $$;
 
 create or replace function is_allowed() returns boolean
-  language sql stable security definer as $$
+  language sql stable security definer
+  set search_path = public, pg_temp
+  as $$
     select exists (select 1 from allowed_emails where lower(email) = jwt_email())
   $$;
 
 create or replace function is_admin() returns boolean
-  language sql stable security definer as $$
+  language sql stable security definer
+  set search_path = public, pg_temp
+  as $$
     select exists (select 1 from allowed_emails where lower(email) = jwt_email() and is_admin)
   $$;
+
+-- Every policy is `to authenticated`, so signed-out callers have no reason to
+-- reach these over /rest/v1/rpc.
+revoke execute on function jwt_email()  from public, anon;
+revoke execute on function is_allowed() from public, anon;
+revoke execute on function is_admin()   from public, anon;
+grant  execute on function jwt_email()  to authenticated;
+grant  execute on function is_allowed() to authenticated;
+grant  execute on function is_admin()   to authenticated;
 
 alter table allowed_emails enable row level security;
 alter table shifts   enable row level security;
