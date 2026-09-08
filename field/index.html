@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14061f">
+<title>Studio Farms — Field</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --ink:#14061f;--surface:#200b33;--surface-2:#2b0060;--line:#43206b;--brand:#5a2d8c;
+  --live:#ffb020;--text:#f2ecfa;--muted:#a892c4;--ok:#5fd39a;--warn:#ff6b6b;--gcal:#7ab8ff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+.wrap{max-width:520px;margin:0 auto;padding:0 20px}
+header{padding:20px 0 14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
+.mark{font-weight:800;letter-spacing:-.02em;font-size:19px}
+.mark span{color:var(--muted);font-weight:500}
+.who{color:var(--muted);font-size:14px}
+.who button{background:none;color:var(--muted);text-decoration:underline;padding:0;font-size:14px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:26px 0 4px}
+h2{font-size:16px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.hint{color:var(--muted);font-size:14px;margin:0 0 16px}
+section{padding:22px 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:0}
+.field{margin:0 0 16px}
+label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
+input[type=text],input[type=number],input[type=time],input[type=date],input[type=datetime-local],textarea,select{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--text);font:inherit;padding:13px 15px;appearance:none;color-scheme:dark}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--live);outline-offset:1px;border-color:transparent}
+textarea{min-height:80px;resize:vertical}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{font:inherit;cursor:pointer;border:0;color:var(--text);background:none}
+.big{width:100%;padding:18px;border-radius:14px;font-size:18px;font-weight:700;background:var(--live);color:#2a1600;transition:transform .12s}
+.big:active{transform:scale(.985)}
+.big.stop{background:var(--text);color:var(--ink)}
+.big.quiet{background:var(--surface-2);color:var(--text)}
+.big[disabled]{background:var(--surface);color:var(--muted)}
+.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
+.ghost:active{color:var(--text)}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--muted)}
+.pill.g{background:rgba(122,184,255,.14);color:var(--gcal)}
+.pill.live{background:rgba(255,176,32,.16);color:var(--live)}
+.pill.won{background:rgba(95,211,154,.16);color:var(--ok)}
+.pill.lost{background:rgba(255,107,107,.14);color:var(--warn)}
+.list{margin:0;padding:0;list-style:none}
+.item{padding:14px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.item:last-child{border-bottom:0}
+.item .t{font-weight:600}
+.item .s{color:var(--muted);font-size:14px;margin-top:2px}
+.item .r{text-align:right;flex-shrink:0;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.item button.edit{color:var(--live);font-size:14px;padding:0}
+.empty{color:var(--muted);font-size:15px;padding:18px 0}
+.notice{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;font-size:14px;color:var(--muted);margin:14px 0}
+.notice.bad{border-color:var(--warn);color:#ffc9c9}
+.notice.good{border-color:var(--ok);color:#c9f5dd}
+.hidden{display:none !important}
+
+/* clock hero */
+.clock{padding:28px 0 20px;text-align:center}
+.elapsed{font-size:clamp(56px,20vw,84px);font-weight:800;letter-spacing:-.045em;font-variant-numeric:tabular-nums;line-height:.95;margin:0;color:var(--muted);transition:color .3s}
+.clock.running .elapsed{color:var(--live)}.clock.done .elapsed{color:var(--text)}
+.clockstate{margin:12px 0 0;color:var(--muted);font-size:15px}
+.clock.running .clockstate{color:var(--live)}
+.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-right:8px;vertical-align:middle}
+.clock.running .pulse{animation:beat 2s ease-in-out infinite}
+@keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
+.shots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.shot{position:relative;aspect-ratio:1;border-radius:11px;overflow:hidden;background:var(--surface)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot button{position:absolute;top:5px;right:5px;width:28px;height:28px;border-radius:50%;background:rgba(20,6,31,.82);font-size:17px;line-height:1}
+.add{aspect-ratio:1;border-radius:11px;border:1.5px dashed var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:13px;text-align:center;padding:8px}
+.tally{border-top:1px solid var(--line);margin:8px 0 0;padding:0}
+.tally div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:15px}
+.tally dt{color:var(--muted)}.tally b{font-variant-numeric:tabular-nums}
+
+/* stats */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.stat{background:var(--surface);border-radius:12px;padding:14px 15px}
+.stat b{display:block;font-size:28px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{color:var(--muted);font-size:13px}
+
+/* week nav */
+.weeknav{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px}
+.weeknav b{font-size:15px}
+.weeknav button{color:var(--muted);font-size:22px;padding:4px 12px}
+.day{padding:10px 0 4px;border-top:1px solid var(--line)}
+.day.today .dh{color:var(--live)}
+.dh{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.day .item{padding:8px 0;border:0}
+
+/* pipeline stages */
+.stagehead{display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 4px}
+.stagehead b{font-size:15px}.stagehead span{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+
+/* tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--ink);border-top:1px solid var(--line);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:30}
+.tabs button{flex:1;color:var(--muted);font-size:11px;font-weight:700;padding:12px 0 10px;position:relative;letter-spacing:-.02em;white-space:nowrap}
+.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.flag{padding:9px 13px;border-radius:99px;font-size:13px;font-weight:600;background:var(--surface);color:var(--muted);border:1px solid var(--line)}
+.flag.on{background:rgba(255,176,32,.16);color:var(--live);border-color:var(--live)}
+.flag.on.reorder{background:rgba(255,107,107,.14);color:var(--warn);border-color:var(--warn)}
+.strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0 6px;margin:0 -20px;padding-left:20px;padding-right:20px;-webkit-overflow-scrolling:touch}
+.strip button{flex:0 0 auto;width:96px;height:96px;border-radius:10px;overflow:hidden;background:var(--surface);padding:0}
+.strip img{width:100%;height:100%;object-fit:cover;display:block}
+.strip .add{width:96px;height:96px;aspect-ratio:auto}
+.contact{padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+.contact:last-child{border-bottom:0}
+.contact b{display:block}.contact span{color:var(--muted);font-size:14px}
+.contact a{color:var(--live);text-decoration:none}
+.search{margin:14px 0 0}
+.line{display:grid;grid-template-columns:1fr 64px 84px 28px;gap:6px;align-items:center;margin-bottom:8px}
+.line input{padding:11px 10px;font-size:15px}
+.line button{color:var(--muted);font-size:20px;line-height:1;text-align:center}
+.line-h{display:grid;grid-template-columns:1fr 64px 84px 28px;gap:6px;font-size:12px;color:var(--muted);margin-bottom:4px}
+.total{display:flex;justify-content:space-between;font-size:17px;padding:12px 0;border-top:1px solid var(--line);margin-top:6px}
+.total b{font-variant-numeric:tabular-nums;font-size:22px}
+.subtabs{display:flex;gap:4px;margin:18px 0 4px;border-bottom:1px solid var(--line)}
+.subtabs button{padding:10px 12px;font-size:14px;white-space:nowrap;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.subtabs button.on{color:var(--text);border-bottom-color:var(--live)}
+.tabs button.on{color:var(--live)}
+.tabs button.on::after{content:"";position:absolute;left:22%;right:22%;top:0;height:2px;background:var(--live);border-radius:0 0 2px 2px}
+.tabs button .dot{position:absolute;top:6px;right:14%;width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+.gallery button{aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--surface);padding:0;display:block}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.chips{display:flex;gap:8px;margin:14px 0 0;flex-wrap:wrap}
+.chip{padding:7px 13px;border-radius:99px;font-size:13px;font-weight:600;background:var(--surface);color:var(--muted);border:1px solid var(--line)}
+.chip.on{background:var(--live);color:#2a1600;border-color:transparent}
+.full{width:100%;border-radius:12px;display:block;max-height:60vh;object-fit:contain;background:#000}
+.due{color:var(--warn);font-weight:600}
+.item button.done{color:var(--ok);font-size:14px;padding:0}
+
+/* sheet */
+.sheet{position:fixed;inset:0;background:rgba(20,6,31,.9);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet>div{background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:20px;margin-bottom:16px}
+.sheet .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.recap{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px;font-size:15px;line-height:1.55;margin:12px 0}
+.auth{padding:90px 0;text-align:center}
+.auth h1{font-size:34px;margin:0 0 8px}
+.auth p{color:var(--muted);margin:0 0 30px}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+
+<script>
+/* ======== CONFIG — fill these in from Supabase > Project Settings > API ======== */
+var CONFIG = {
+  SUPABASE_URL:  "https://susmoduqktplzgzqrcti.supabase.co",
+  SUPABASE_ANON: "sb_publishable__03-jq7_B63ADH4xfFAH1Q_BSHLY_x3",
+  MILEAGE_RATE:  0.70,
+  TIMEZONE:      "America/New_York"
+};
+</script>
+
+<!-- sign in -->
+<div id="auth" class="wrap auth">
+  <div class="mark" style="margin-bottom:60px">Studio Farms <span>/ field</span></div>
+  <h1>Sign in</h1>
+  <p>Use your Google account. It also connects your calendar so booked pop-ups land there automatically.</p>
+  <button class="big" id="signin">Continue with Google</button>
+  <div id="auth-err" class="notice bad hidden" style="text-align:left"></div>
+</div>
+
+<!-- not on the roster -->
+<div id="denied" class="wrap auth hidden">
+  <h1>Not on the roster yet</h1>
+  <p id="denied-line"></p>
+  <button class="ghost" id="signout-denied">Sign out</button>
+</div>
+
+<!-- app -->
+<div id="app" class="hidden">
+<div class="wrap">
+  <header>
+    <div class="mark">Studio Farms <span>/ field</span></div>
+    <div class="who"><span id="who-name"></span> · <button id="signout">sign out</button></div>
+  </header>
+
+  <!-- ===== TODAY ===== -->
+  <div id="tab-today" class="tab">
+    <h1 id="today-h"></h1>
+    <p class="hint" id="today-sub"></p>
+    <div id="today-shift" class="notice live hidden"></div>
+    <div id="today-flags" class="notice hidden" style="cursor:pointer"></div>
+    <section>
+      <h2>Follow-ups</h2>
+      <ul class="list" id="today-followups"></ul>
+    </section>
+    <section>
+      <h2>Pop-ups today</h2>
+      <ul class="list" id="today-popups"></ul>
+    </section>
+    <section>
+      <h2>Meetings today</h2>
+      <ul class="list" id="today-meetings"></ul>
+    </section>
+    <section>
+      <h2>Coming up</h2>
+      <ul class="list" id="today-next"></ul>
+    </section>
+  </div>
+
+  <!-- ===== SHIFT ===== -->
+  <div id="tab-shift" class="tab hidden">
+    <div class="clock" id="clock">
+      <p class="elapsed" id="elapsed">0:00</p>
+      <p class="clockstate" id="clockstate"></p>
+    </div>
+    <section style="padding-top:0">
+      <div class="field"><label for="sh-event">Shop or event</label><input type="text" id="sh-event" list="shop-names" placeholder="Pick the shop or type"><datalist id="popup-names"></datalist></div>
+      <div class="field"><label for="sh-location">Town</label><input type="text" id="sh-location" placeholder="e.g. Kingston"></div>
+    </section>
+    <section id="sh-wrap" class="hidden">
+      <h2>Travel</h2><p class="hint">Round trip, door to door.</p>
+      <div class="row">
+        <div class="field"><label for="sh-miles">Miles driven</label><input type="number" id="sh-miles" inputmode="decimal" min="0" step="0.1" placeholder="0"></div>
+        <div class="field"><label for="sh-travel">Minutes driving</label><input type="number" id="sh-travel" inputmode="numeric" min="0" step="5" placeholder="0"></div>
+      </div>
+      <h2 style="margin-top:8px">Photos</h2><p class="hint">At least one is required — booth, crowd, or product. Up to six. Photos have to be from this shift; the app checks when they were taken.</p>
+      <div class="shots" id="shots"><button type="button" class="add" id="add-photo">Take photo</button><button type="button" class="add" id="add-gallery">From camera roll</button></div>
+      <input type="file" id="picker" accept="image/*" capture="environment" class="hidden">
+      <input type="file" id="picker-gallery" accept="image/*" multiple class="hidden">
+      <h2 style="margin-top:22px">Check it over</h2><p class="hint">Fix the times if you forgot to clock in or out.</p>
+      <div class="row">
+        <div class="field"><label for="sh-in">Clocked in</label><input type="time" id="sh-in"></div>
+        <div class="field"><label for="sh-out">Clocked out</label><input type="time" id="sh-out"></div>
+      </div>
+      <div class="field"><label for="sh-notes">How did it go</label><textarea id="sh-notes" placeholder="Turnout, what sold, budtender feedback, problems…"></textarea></div>
+      <dl class="tally" id="tally"></dl>
+    </section>
+    <div id="sh-err" class="notice bad hidden"></div>
+    <div id="sh-ok" class="notice good hidden"></div>
+    <div style="padding:18px 0 8px"><button class="big" id="sh-action">Clock in</button></div>
+    <section>
+      <h2>Recent shifts</h2>
+      <ul class="list" id="sh-recent"></ul>
+    </section>
+  </div>
+
+  <!-- ===== SHOPS ===== -->
+  <div id="tab-shops" class="tab hidden">
+    <h1>Shops</h1>
+    <p class="hint">One page per dispensary — who's there, what's on their shelf, what they've asked for.</p>
+    <button class="big" id="sp-new">Add a shop</button>
+    <div class="field search"><input type="text" id="sp-search" placeholder="Search shops or towns" autocomplete="off"></div>
+    <div class="flags" id="sp-flags"><button class="flag" data-f="wants_samples">Wants samples</button><button class="flag" data-f="wants_swag">Wants swag</button><button class="flag reorder" data-f="reorder_soon">Reorder soon</button></div>
+    <ul class="list" id="sp-list"></ul>
+  </div>
+  <datalist id="shop-names"></datalist>
+
+  <!-- ===== MEETINGS ===== -->
+  <div id="tab-meetings" class="tab hidden">
+    <h1>Meetings</h1>
+    <p class="hint">Every shop visit, call, or sit-down. Log it while it's fresh.</p>
+    <div class="row"><button class="big" id="mt-new">Log a meeting</button><button class="big quiet" id="sm-new">Log a sample drop</button></div>
+    <div id="mt-filter" style="margin-top:16px"></div>
+    <section>
+      <h2>Samples out</h2>
+      <p class="hint">What's sitting on shop counters right now, and whether anyone's chased it.</p>
+      <ul class="list" id="sm-list"></ul>
+    </section>
+    <section>
+      <h2>Meetings</h2>
+      <ul class="list" id="mt-list"></ul>
+    </section>
+    <datalist id="strain-names"></datalist>
+  </div>
+
+  <!-- ===== PIPELINE ===== -->
+  <div id="tab-pipeline" class="tab hidden">
+    <h1>Pipeline</h1>
+    <p class="hint">Where every shop stands. Tap a deal to move it.</p>
+    <div class="row"><button class="big" id="or-new">Log an order</button><button class="big quiet" id="dl-new">Add to pipeline</button></div>
+    <div id="dl-filter" style="margin-top:16px"></div>
+    <div id="dl-board"></div>
+    <section>
+      <h2>Recent orders</h2>
+      <ul class="list" id="or-list"></ul>
+    </section>
+    <datalist id="product-names"></datalist>
+  </div>
+
+  <!-- ===== POP-UPS ===== -->
+  <div id="tab-popups" class="tab hidden">
+    <h1>Pop-ups</h1>
+    <p class="hint">Booked events sync to your Google Calendar when you save them.</p>
+    <button class="big" id="pu-new">Book a pop-up</button>
+    <div id="gcal-state" class="notice hidden"></div>
+    <div class="weeknav"><button id="pu-prev" aria-label="Previous week">‹</button><b id="pu-week"></b><button id="pu-next" aria-label="Next week">›</button></div>
+    <div id="pu-cal"></div>
+  </div>
+
+  <!-- ===== PHOTOS ===== -->
+  <div id="tab-photos" class="tab hidden">
+    <h1>Photos</h1>
+    <p class="hint">Everything the team has shot — pop-up photos land here automatically, and anyone can add farm, product, or shop photos.</p>
+    <button class="big" id="ph-add">Add photos</button>
+    <input type="file" id="ph-picker" accept="image/*" multiple class="hidden">
+    <div class="chips" id="ph-chips"><button class="chip on" data-f="all">All</button><button class="chip" data-f="popups">Pop-ups</button><button class="chip" data-f="uploads">Uploads</button></div>
+    <div id="ph-err" class="notice bad hidden"></div>
+    <div class="gallery" id="ph-grid"></div>
+    <p class="empty hidden" id="ph-empty">Nothing here yet.</p>
+    <div style="text-align:center;padding:16px 0"><button class="ghost hidden" id="ph-more">Show more</button></div>
+  </div>
+
+  <!-- ===== WEEK ===== -->
+  <div id="tab-week" class="tab hidden">
+    <h1>Week</h1>
+    <div class="field" id="wk-rep-wrap" style="display:none"><label for="wk-rep">Rep</label><select id="wk-rep"></select></div>
+    <div class="weeknav"><button id="wk-prev" aria-label="Previous week">‹</button><b id="wk-week"></b><button id="wk-next" aria-label="Next week">›</button></div>
+    <div class="stats" id="wk-stats"></div>
+    <div class="row" style="margin-bottom:10px"><button class="ghost" id="wk-export-orders">Export orders CSV</button><button class="ghost" id="wk-export-shifts">Export hours CSV</button></div>
+    <button class="big quiet" id="wk-write">Write the recap</button>
+    <div id="wk-err" class="notice bad hidden"></div>
+    <div id="wk-recap-wrap" class="hidden">
+      <div class="recap" id="wk-recap"></div>
+      <div class="row"><button class="ghost" id="wk-copy">Copy</button><button class="ghost" id="wk-rewrite">Write it again</button></div>
+    </div>
+    <section><h2>What happened</h2><ul class="list" id="wk-list"></ul></section>
+  </div>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="today" class="on">Today<span class="dot hidden" id="today-dot"></span></button>
+  <button data-tab="shift">Shift</button>
+  <button data-tab="shops">Shops</button>
+  <button data-tab="meetings">Log</button>
+  <button data-tab="pipeline">Deals</button>
+  <button data-tab="popups">Pop-ups</button>
+  <button data-tab="photos">Photos</button>
+  <button data-tab="week">Week</button>
+</nav>
+</div>
+
+<div id="sheet-root"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- shared helpers ---------- */
+var $ = function(id){ return document.getElementById(id); };
+var sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON);
+var ME = null;      // { email, name, admin }
+var ROSTER = [];    // allowed_emails rows
+var STAGES = [
+  ["lead","Lead"],["sample_dropped","Sample dropped"],["menu_sent","Menu sent"],
+  ["order_placed","Order placed"],["won","Won"],["lost","Lost"]
+];
+function stageLabel(k){ var s = STAGES.filter(function(x){return x[0]===k;})[0]; return s ? s[1] : k; }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function fmtTime(d){ return new Date(d).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
+function isoDate(d){ d = new Date(d); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmtDay(iso){ if(!iso) return ""; var p = iso.split("-"); return new Date(+p[0], +p[1]-1, +p[2]).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}); }
+function fmtDate(d){ return new Date(d).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}); }
+function fmtMoney(n){ return "$" + (Number(n)||0).toLocaleString([], {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function hhmm(ms){ var m = Math.max(0, Math.round(ms/60000)); return Math.floor(m/60) + ":" + String(m%60).padStart(2,"0"); }
+function localInput(d){ d = new Date(d); var p = function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
+function startOfWeek(d){ d = new Date(d); d.setHours(0,0,0,0); var day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; }
+function addDays(d,n){ d = new Date(d); d.setDate(d.getDate()+n); return d; }
+function sameDay(a,b){ a=new Date(a); b=new Date(b); return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function weekLabel(ws){ var we = addDays(ws,6); return ws.toLocaleDateString([], {month:"short", day:"numeric"}) + " – " + we.toLocaleDateString([], {month:"short", day:"numeric"}); }
+function note(el, msg, kind){ el.textContent = msg; el.className = "notice " + (kind||"") ; el.classList.remove("hidden"); }
+function hide(el){ el.classList.add("hidden"); }
+function bail(err){ console.error(err); return (err && err.message) || String(err); }
+
+/* ---------- sheets (bottom modals) ---------- */
+function openSheet(html, wire){
+  var root = $("sheet-root");
+  root.innerHTML = '<div class="sheet"><div>' + html + '</div></div>';
+  root.querySelector(".sheet").addEventListener("click", function(e){ if(e.target === e.currentTarget) closeSheet(); });
+  if(wire) wire(root);
+}
+function closeSheet(){ $("sheet-root").innerHTML = ""; }
+
+/* ---------- tabs ---------- */
+var TAB = "today";
+var renderers = {};
+function showTab(name){
+  TAB = name;
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){ t.classList.toggle("hidden", t.id !== "tab-"+name); });
+  Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function(b){ b.classList.toggle("on", b.dataset.tab === name); });
+  window.scrollTo(0,0);
+  if(renderers[name]) renderers[name]();
+}
+$("tabs").addEventListener("click", function(e){ var b = e.target.closest("button"); if(b) showTab(b.dataset.tab); });
+
+/* ======================================================================
+   AUTH + GOOGLE CALENDAR TOKEN
+   ====================================================================== */
+var GKEY = "sf_gcal_v1";
+function gcalStore(){ try { return JSON.parse(localStorage.getItem(GKEY) || "null"); } catch(e){ return null; } }
+function gcalSave(o){ try { localStorage.setItem(GKEY, JSON.stringify(o)); } catch(e){} }
+
+$("signin").onclick = function(){
+  sb.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      scopes: "https://www.googleapis.com/auth/calendar.events",
+      queryParams: { access_type: "offline", prompt: "consent" },
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  }).then(function(r){ if(r.error) note($("auth-err"), bail(r.error), "bad"); });
+};
+$("signout").onclick = $("signout-denied").onclick = function(){
+  try { localStorage.removeItem(GKEY); } catch(e){}
+  sb.auth.signOut().then(function(){ window.location.reload(); });
+};
+
+sb.auth.onAuthStateChange(function(event, session){
+  if(session && session.provider_token){
+    var cur = gcalStore() || {};
+    gcalSave({ token: session.provider_token, exp: Date.now() + 3500*1000,
+               refresh: session.provider_refresh_token || cur.refresh || null });
+  }
+  if(session) boot(session); else showAuth();
+});
+
+function showAuth(){ $("auth").classList.remove("hidden"); hide($("app")); hide($("denied")); }
+
+function boot(session){
+  var email = (session.user.email || "").toLowerCase();
+  sb.from("allowed_emails").select("*").then(function(r){
+    ROSTER = r.data || [];
+    var mine = ROSTER.filter(function(x){ return x.email.toLowerCase() === email; })[0];
+    if(!mine){
+      hide($("auth")); hide($("app")); $("denied").classList.remove("hidden");
+      $("denied-line").textContent = email + " isn't on the team list. Ask Andrew to add it.";
+      return;
+    }
+    ME = { email: email, name: mine.display_name, admin: !!mine.is_admin, rate: Number(mine.commission_rate)||0 };
+    $("who-name").textContent = ME.name;
+    hide($("auth")); hide($("denied")); $("app").classList.remove("hidden");
+    shiftRestore();
+    loadShops(); loadProducts();
+    showTab("today");
+  });
+}
+
+// Returns a Promise<string|null> for a usable Google access token.
+function gcalToken(){
+  var g = gcalStore();
+  if(!g || !g.token) return Promise.resolve(null);
+  if(g.exp > Date.now() + 60000) return Promise.resolve(g.token);
+  if(!g.refresh) return Promise.resolve(null);
+  return fetch("/.netlify/functions/gcal-refresh", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ refresh_token: g.refresh }) })
+    .then(function(r){ if(!r.ok) throw new Error("refresh failed"); return r.json(); })
+    .then(function(d){ g.token = d.access_token; g.exp = Date.now() + (d.expires_in||3600)*1000; gcalSave(g); return g.token; })
+    .catch(function(){ return null; });
+}
+function gcal(method, path, body){
+  return gcalToken().then(function(tok){
+    if(!tok) throw new Error("NO_GCAL");
+    return fetch("https://www.googleapis.com/calendar/v3/calendars/primary/" + path, {
+      method: method, headers: { "authorization": "Bearer " + tok, "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  }).then(function(r){
+    if(r.status === 401) throw new Error("NO_GCAL");
+    if(!r.ok) return r.text().then(function(t){ throw new Error("Google: " + t.slice(0,140)); });
+    return r.status === 204 ? null : r.json();
+  });
+}
+function gcalEventBody(p){
+  return {
+    summary: "Pop-up: " + p.shop,
+    location: p.address || "",
+    description: (p.notes_before || "") + "\n\nLogged in Studio Farms Field.",
+    start: { dateTime: new Date(p.starts_at).toISOString() },
+    end:   { dateTime: new Date(p.ends_at).toISOString() },
+    reminders: { useDefault: false, overrides: [{ method:"popup", minutes: 120 }, { method:"popup", minutes: 1440 }] }
+  };
+}
+
+/* ======================================================================
+   TODAY
+   ====================================================================== */
+renderers.today = function(){
+  var now = new Date();
+  $("today-h").textContent = now.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"});
+  $("today-sub").textContent = "Hey " + ME.name + ".";
+  var dayStart = new Date(now); dayStart.setHours(0,0,0,0);
+  var dayEnd = addDays(dayStart,1);
+  var horizon = addDays(dayStart,8);
+
+  var s = shiftState();
+  if(s.stage === "running"){ note($("today-shift"), "You're on the clock at " + (s.fields["sh-event"] || "a pop-up") + " since " + fmtTime(s.startedAt) + ".", "live"); }
+  else if(s.stage === "wrapup"){ note($("today-shift"), "You clocked out but haven't submitted that shift yet.", "live"); }
+  else hide($("today-shift"));
+
+  loadFollowups();
+  loadShops().then(function(){
+    var a = SHOPS.filter(function(x){return x.reorder_soon;}).length, b = SHOPS.filter(function(x){return x.wants_samples;}).length, c = SHOPS.filter(function(x){return x.wants_swag;}).length;
+    var parts = []; if(a) parts.push(a+" due for reorder"); if(b) parts.push(b+" want samples"); if(c) parts.push(c+" want swag");
+    if(parts.length){ note($("today-flags"), "Shops: " + parts.join(", ") + ". Tap to see them."); $("today-flags").onclick = function(){ showTab("shops"); }; }
+    else hide($("today-flags"));
+  });
+  Promise.all([
+    sb.from("popups").select("*").eq("rep_email", ME.email).gte("starts_at", dayStart.toISOString()).lt("starts_at", horizon.toISOString()).order("starts_at"),
+    sb.from("meetings").select("*").eq("rep_email", ME.email).gte("meeting_at", dayStart.toISOString()).lt("meeting_at", horizon.toISOString()).order("meeting_at")
+  ]).then(function(rs){
+    var pops = rs[0].data || [], mts = rs[1].data || [];
+    var tp = pops.filter(function(p){ return new Date(p.starts_at) < dayEnd; });
+    var tm = mts.filter(function(m){ return new Date(m.meeting_at) < dayEnd; });
+    var nx = pops.filter(function(p){ return new Date(p.starts_at) >= dayEnd; }).map(function(p){ return { when:p.starts_at, t:p.shop, s:"Pop-up · " + fmtDate(p.starts_at) }; })
+      .concat(mts.filter(function(m){ return new Date(m.meeting_at) >= dayEnd; }).map(function(m){ return { when:m.meeting_at, t:m.shop, s:"Meeting · " + fmtDate(m.meeting_at) }; }))
+      .sort(function(a,b){ return new Date(a.when)-new Date(b.when); });
+
+    $("today-popups").innerHTML = tp.length ? tp.map(function(p){
+      return '<li class="item"><div><div class="t">'+esc(p.shop)+'</div><div class="s">'+esc(p.address||"")+'</div></div><div class="r">'+fmtTime(p.starts_at)+'–'+fmtTime(p.ends_at)+'</div></li>';
+    }).join("") : '<li class="empty">Nothing booked today.</li>';
+    $("today-meetings").innerHTML = tm.length ? tm.map(function(m){
+      return '<li class="item"><div><div class="t">'+esc(m.shop)+'</div><div class="s">'+esc(m.contact||"")+'</div></div><div class="r">'+fmtTime(m.meeting_at)+'</div></li>';
+    }).join("") : '<li class="empty">No meetings on the books.</li>';
+    $("today-next").innerHTML = nx.length ? nx.slice(0,6).map(function(x){
+      return '<li class="item"><div><div class="t">'+esc(x.t)+'</div><div class="s">'+esc(x.s)+'</div></div></li>';
+    }).join("") : '<li class="empty">Next seven days are open.</li>';
+  });
+};
+
+function loadFollowups(){
+  var today = isoDate(new Date()), soon = isoDate(addDays(new Date(),7));
+  var mq = sb.from("meetings").select("*").eq("next_step_done", false).not("next_step_due","is",null).lte("next_step_due", soon).order("next_step_due");
+  var sq = sb.from("samples").select("*").eq("followed_up", false).not("follow_up_due","is",null).lte("follow_up_due", soon).order("follow_up_due");
+  if(!ME.admin){ mq = mq.eq("rep_email", ME.email); sq = sq.eq("rep_email", ME.email); }
+  Promise.all([mq, sq]).then(function(rs){
+    var items = [];
+    (rs[0].data||[]).forEach(function(m){ items.push({ due:m.next_step_due, t:m.shop, s:m.next_step || "Follow up", who:m.rep_name, kind:"meetings", id:m.id, col:"next_step_done" }); });
+    (rs[1].data||[]).forEach(function(x){ items.push({ due:x.follow_up_due, t:x.shop, s:"Check on the "+x.strain+" sample ("+Number(x.quantity)+x.unit+", left "+fmtDay(x.left_at)+")", who:x.rep_name, kind:"samples", id:x.id, col:"followed_up" }); });
+    items.sort(function(a,b){ return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+    var overdue = items.filter(function(i){ return i.due < today; }).length;
+    $("today-dot").classList.toggle("hidden", !items.filter(function(i){ return i.due <= today; }).length);
+    $("today-followups").innerHTML = items.length ? items.map(function(i){
+      var when = i.due < today ? '<span class="due">Overdue · '+fmtDay(i.due)+'</span>' : i.due === today ? '<span class="due" style="color:var(--live)">Today</span>' : fmtDay(i.due);
+      return '<li class="item"><div><div class="t">'+esc(i.t)+'</div><div class="s">'+esc(i.s)+(ME.admin?' · '+esc(i.who):'')+'</div></div><div class="r">'+when+'<br><button class="done" data-k="'+i.kind+'" data-id="'+i.id+'" data-col="'+i.col+'">done</button></div></li>';
+    }).join("") : '<li class="empty">Nothing owed. Log a next step on a meeting or drop a sample and it shows up here when it\'s due.</li>';
+    Array.prototype.forEach.call($("today-followups").querySelectorAll(".done"), function(b){
+      b.onclick = function(){ var patch = {}; patch[b.dataset.col] = true; sb.from(b.dataset.k).update(patch).eq("id", b.dataset.id).then(function(){ loadFollowups(); }); };
+    });
+  });
+}
+
+/* ======================================================================
+   SHIFT LOGGER
+   ====================================================================== */
+var SKEY = "sf_shift_v2";
+var MAX_PHOTOS = 6;
+var photos = [];
+var tick = null;
+var SH = { stage:"idle", startedAt:null, endedAt:null };
+var SH_FIELDS = ["sh-event","sh-location","sh-miles","sh-travel","sh-notes"];
+
+function shiftState(){ var f = {}; SH_FIELDS.forEach(function(id){ f[id] = $(id).value; }); return { stage:SH.stage, startedAt:SH.startedAt, endedAt:SH.endedAt, fields:f }; }
+function shiftSave(){ try { localStorage.setItem(SKEY, JSON.stringify(shiftState())); } catch(e){} }
+function shiftRestore(){
+  var bag; try { bag = JSON.parse(localStorage.getItem(SKEY) || "null"); } catch(e){}
+  if(!bag) return;
+  SH.stage = bag.stage || "idle"; SH.startedAt = bag.startedAt || null; SH.endedAt = bag.endedAt || null;
+  if(bag.fields) SH_FIELDS.forEach(function(id){ if(bag.fields[id]) $(id).value = bag.fields[id]; });
+  if(SH.stage === "wrapup"){ $("sh-in").value = timeValue(SH.startedAt); $("sh-out").value = timeValue(SH.endedAt); }
+  if(SH.stage === "running") startTick();
+}
+function timeValue(ts){ if(!ts) return ""; var d = new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function withTime(ts, s){ var p = s.split(":"); if(p.length!==2) return ts; var d = new Date(ts); d.setHours(+p[0], +p[1], 0, 0); return d.getTime(); }
+function shiftHours(){ return (SH.startedAt && SH.endedAt) ? Math.max(0,(SH.endedAt-SH.startedAt)/3600000) : 0; }
+function shiftPay(){ return (parseFloat($("sh-miles").value)||0) * CONFIG.MILEAGE_RATE; }
+function startTick(){ if(tick) clearInterval(tick); tick = setInterval(function(){ if(SH.stage==="running" && TAB==="shift") $("elapsed").textContent = hhmm(Date.now()-SH.startedAt); }, 1000); }
+
+function paintShift(){
+  var c = $("clock");
+  c.className = "clock" + (SH.stage==="running" ? " running" : SH.stage==="wrapup" ? " done" : "");
+  var a = $("sh-action");
+  if(SH.stage === "idle"){
+    $("elapsed").textContent = "0:00"; $("clockstate").textContent = "Pick the pop-up, then clock in.";
+    a.textContent = "Clock in"; a.className = "big";
+  } else if(SH.stage === "running"){
+    $("elapsed").textContent = hhmm(Date.now()-SH.startedAt);
+    $("clockstate").innerHTML = '<span class="pulse"></span>On the clock since ' + fmtTime(SH.startedAt);
+    a.textContent = "Clock out"; a.className = "big stop";
+  } else {
+    $("elapsed").textContent = hhmm(SH.endedAt-SH.startedAt);
+    $("clockstate").textContent = fmtTime(SH.startedAt) + " to " + fmtTime(SH.endedAt);
+    a.textContent = "Submit shift"; a.className = "big";
+  }
+  $("sh-wrap").classList.toggle("hidden", SH.stage !== "wrapup");
+  if(SH.stage === "wrapup") paintTally();
+}
+function paintTally(){
+  var rows = [["Hours on site", shiftHours().toFixed(2)],["Driving", (parseInt($("sh-travel").value,10)||0)+" min"],["Miles", (parseFloat($("sh-miles").value)||0).toFixed(1)],["Mileage owed", "$"+shiftPay().toFixed(2)],["Photos", photos.length ? String(photos.length) : '<span class="due">none yet — required</span>']];
+  $("tally").innerHTML = rows.map(function(r){ return "<div><dt>"+r[0]+"</dt><b>"+r[1]+"</b></div>"; }).join("");
+}
+function paintShots(){
+  var box = $("shots"), add = $("add-photo"), gal = $("add-gallery");
+  Array.prototype.forEach.call(box.querySelectorAll(".shot"), function(n){ n.remove(); });
+  photos.forEach(function(p,i){
+    var cell = document.createElement("div"); cell.className = "shot";
+    var img = document.createElement("img"); img.src = p.url; img.alt = "Photo "+(i+1);
+    var kill = document.createElement("button"); kill.type="button"; kill.innerHTML="&times;"; kill.setAttribute("aria-label","Remove photo "+(i+1));
+    kill.onclick = function(){ URL.revokeObjectURL(p.url); photos.splice(i,1); paintShots(); paintTally(); };
+    cell.appendChild(img); cell.appendChild(kill); box.insertBefore(cell, add);
+  });
+  add.classList.toggle("hidden", photos.length >= MAX_PHOTOS);
+  gal.classList.toggle("hidden", photos.length >= MAX_PHOTOS);
+}
+// Pull DateTimeOriginal out of a JPEG's EXIF. Resolves to a ms timestamp, or null if there isn't one.
+function exifTakenAt(file){
+  return new Promise(function(resolve){
+    var rd = new FileReader();
+    rd.onerror = function(){ resolve(null); };
+    rd.onload = function(){
+      try {
+        var dv = new DataView(rd.result);
+        if(dv.getUint16(0) !== 0xFFD8) return resolve(null);           // not a JPEG
+        var off = 2, len = dv.byteLength;
+        while(off + 4 < len){
+          var marker = dv.getUint16(off); if((marker & 0xFF00) !== 0xFF00) break;
+          var size = dv.getUint16(off+2);
+          if(marker === 0xFFE1 && dv.getUint32(off+4) === 0x45786966){   // "Exif"
+            var tiff = off + 10;
+            var le = dv.getUint16(tiff) === 0x4949;
+            var u16 = function(p){ return dv.getUint16(p, le); }, u32 = function(p){ return dv.getUint32(p, le); };
+            var ascii = function(p, n){ var s = ""; for(var i=0;i<n;i++){ var c = dv.getUint8(p+i); if(!c) break; s += String.fromCharCode(c); } return s; };
+            var readIFD = function(p){ var out = {}, n = u16(p); for(var i=0;i<n;i++){ var e = p+2+i*12, tag = u16(e), type = u16(e+2), cnt = u32(e+4); var vp = (type===2 && cnt>4) ? tiff + u32(e+8) : e+8; out[tag] = { type:type, cnt:cnt, p:vp, raw:u32(e+8) }; } return out; };
+            var ifd0 = readIFD(tiff + u32(tiff+4));
+            var date = null;
+            if(ifd0[0x8769]){ var ex = readIFD(tiff + ifd0[0x8769].raw); if(ex[0x9003]) date = ascii(ex[0x9003].p, ex[0x9003].cnt); }
+            if(!date && ifd0[0x0132]) date = ascii(ifd0[0x0132].p, ifd0[0x0132].cnt);
+            if(!date) return resolve(null);
+            var m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(date);
+            if(!m) return resolve(null);
+            return resolve(new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]).getTime());
+          }
+          if(marker === 0xFFDA) break;                                    // image data starts; no EXIF ahead
+          off += 2 + size;
+        }
+        resolve(null);
+      } catch(e){ resolve(null); }
+    };
+    rd.readAsArrayBuffer(file.slice(0, 256*1024));
+  });
+}
+// Photos must be taken within the shift, give or take an hour.
+function photoWindow(){
+  var slack = 60*60000;
+  return { from: (SH.startedAt||Date.now()) - slack, to: (SH.endedAt||Date.now()) + slack };
+}
+function photoRejection(takenAt){
+  if(takenAt == null) return "That photo has no date on it (screenshots, downloads, and texted photos lose it). Use Take photo instead.";
+  var w = photoWindow();
+  if(takenAt < w.from) return "That photo is from " + fmtDate(takenAt) + " at " + fmtTime(takenAt) + " — before this shift. Only photos from today's pop-up count.";
+  if(takenAt > w.to) return "That photo's timestamp is after you clocked out. Fix the clock-out time if it's wrong.";
+  return null;
+}
+function addPhotoFile(file, trustedNow){
+  var check = trustedNow ? Promise.resolve(Date.now()) : exifTakenAt(file);
+  return check.then(function(takenAt){
+    var why = photoRejection(takenAt);
+    if(why){ note($("sh-err"), why, "bad"); return; }
+    return shrink(file).then(function(b){ photos.push({ blob:b, url:URL.createObjectURL(b), takenAt:takenAt }); paintShots(); paintTally(); });
+  });
+}
+function shrink(file){
+  return new Promise(function(resolve){
+    var rd = new FileReader();
+    rd.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var max = 1600, sc = Math.min(1, max/Math.max(img.width,img.height));
+        var c = document.createElement("canvas"); c.width = Math.round(img.width*sc); c.height = Math.round(img.height*sc);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        c.toBlob(function(b){ resolve(b||file); }, "image/jpeg", 0.8);
+      };
+      img.onerror = function(){ resolve(file); };
+      img.src = rd.result;
+    };
+    rd.onerror = function(){ resolve(file); };
+    rd.readAsDataURL(file);
+  });
+}
+
+$("add-photo").onclick = function(){ $("picker").click(); };
+$("add-gallery").onclick = function(){ $("picker-gallery").click(); };
+$("picker").onchange = function(){
+  var f = $("picker").files && $("picker").files[0];
+  hide($("sh-err"));
+  // Straight from the camera: the app knows it was just taken, but still prefer the EXIF stamp when present.
+  if(f) exifTakenAt(f).then(function(t){ return addPhotoFile(f, t == null); });
+  $("picker").value = "";
+};
+$("picker-gallery").onchange = function(){
+  var files = Array.prototype.slice.call($("picker-gallery").files||[]), room = MAX_PHOTOS - photos.length;
+  hide($("sh-err"));
+  if(files.length > room) note($("sh-err"), "Only room for "+room+" more — extras skipped.", "bad");
+  files.slice(0,room).reduce(function(chain, f){ return chain.then(function(){ return addPhotoFile(f, false); }); }, Promise.resolve());
+  $("picker-gallery").value = "";
+};
+$("sh-in").onchange = function(){ if($("sh-in").value){ SH.startedAt = withTime(SH.startedAt, $("sh-in").value); shiftSave(); paintShift(); } };
+$("sh-out").onchange = function(){ if($("sh-out").value){ SH.endedAt = withTime(SH.endedAt, $("sh-out").value); if(SH.endedAt < SH.startedAt) SH.endedAt += 86400000; shiftSave(); paintShift(); } };
+SH_FIELDS.forEach(function(id){ $(id).addEventListener("input", function(){ shiftSave(); if(SH.stage==="wrapup") paintTally(); }); });
+
+$("sh-action").onclick = function(){
+  hide($("sh-err")); hide($("sh-ok"));
+  if(SH.stage === "idle"){
+    if(!$("sh-event").value.trim()) return note($("sh-err"), "Add the shop or event name first.", "bad");
+    SH.startedAt = Date.now(); SH.stage = "running"; shiftSave(); paintShift(); startTick(); return;
+  }
+  if(SH.stage === "running"){
+    SH.endedAt = Date.now(); SH.stage = "wrapup"; if(tick){ clearInterval(tick); tick=null; }
+    $("sh-in").value = timeValue(SH.startedAt); $("sh-out").value = timeValue(SH.endedAt);
+    shiftSave(); paintShift(); $("sh-wrap").scrollIntoView({behavior:"smooth", block:"start"}); return;
+  }
+  if(!photos.length){ note($("sh-err"), "Every pop-up needs at least one photo before it can be submitted. Add a shot of the booth, the product, or the crowd.", "bad"); $("shots").scrollIntoView({behavior:"smooth", block:"center"}); return; }
+  submitShift();
+};
+
+function submitShift(){
+  var a = $("sh-action"); a.disabled = true; a.textContent = "Uploading…";
+  var stamp = Date.now();
+  var uploads = photos.map(function(p,i){
+    var path = ME.email.replace(/[^a-z0-9]/g,"_") + "/" + stamp + "-" + (i+1) + ".jpg";
+    return sb.storage.from("shift-photos").upload(path, p.blob, { contentType:"image/jpeg" }).then(function(r){ if(r.error) throw r.error; return path; });
+  });
+  Promise.all(uploads).then(function(paths){
+    a.textContent = "Saving…";
+    return sb.from("shifts").insert({
+      rep_email: ME.email, rep_name: ME.name,
+      event: $("sh-event").value.trim(), location: $("sh-location").value.trim(),
+      clock_in: new Date(SH.startedAt).toISOString(), clock_out: new Date(SH.endedAt).toISOString(),
+      hours: +shiftHours().toFixed(2),
+      travel_minutes: parseInt($("sh-travel").value,10)||0,
+      miles: parseFloat($("sh-miles").value)||0,
+      rate: CONFIG.MILEAGE_RATE, mileage_pay: +shiftPay().toFixed(2),
+      notes: $("sh-notes").value.trim(), photo_paths: paths,
+      photo_taken_at: photos.map(function(p){ return new Date(p.takenAt).toISOString(); })
+    }).then(function(r){ if(r.error) throw r.error; });
+  }).then(function(){
+    note($("sh-ok"), "Submitted: " + shiftHours().toFixed(2) + " hours at " + $("sh-event").value.trim() + ", $" + shiftPay().toFixed(2) + " mileage.", "good");
+    photos.forEach(function(p){ URL.revokeObjectURL(p.url); }); photos = [];
+    SH = { stage:"idle", startedAt:null, endedAt:null };
+    ["sh-event","sh-location","sh-miles","sh-travel","sh-notes"].forEach(function(id){ $(id).value=""; });
+    try { localStorage.removeItem(SKEY); } catch(e){}
+    a.disabled = false; paintShots(); paintShift(); loadRecentShifts(); window.scrollTo(0,0);
+  }).catch(function(err){
+    a.disabled = false; a.textContent = "Submit shift";
+    note($("sh-err"), "Didn't save: " + bail(err) + " — nothing was lost, try again.", "bad");
+  });
+}
+
+function loadRecentShifts(){
+  var q = sb.from("shifts").select("*").order("clock_in", {ascending:false}).limit(8);
+  if(!ME.admin) q = q.eq("rep_email", ME.email);
+  q.then(function(r){
+    var rows = r.data||[];
+    $("sh-recent").innerHTML = rows.length ? rows.map(function(s){
+      return '<li class="item"><div><div class="t">'+esc(s.event)+'</div><div class="s">'+(ME.admin? esc(s.rep_name)+" · " : "")+fmtDate(s.clock_in)+(s.photo_paths&&s.photo_paths.length? " · "+s.photo_paths.length+" photos":"")+'</div></div><div class="r">'+Number(s.hours).toFixed(2)+' h<br>$'+Number(s.mileage_pay).toFixed(2)+'</div></li>';
+    }).join("") : '<li class="empty">No shifts logged yet.</li>';
+  });
+}
+renderers.shift = function(){
+  paintShift(); paintShots(); loadRecentShifts();
+  sb.from("popups").select("shop").eq("rep_email", ME.email).gte("starts_at", addDays(new Date(),-2).toISOString()).order("starts_at").limit(10).then(function(r){
+    var seen = {}; $("popup-names").innerHTML = (r.data||[]).filter(function(p){ if(seen[p.shop]) return false; seen[p.shop]=1; return true; }).map(function(p){ return '<option value="'+esc(p.shop)+'">'; }).join("");
+  });
+};
+
+/* ======================================================================
+   MEETINGS
+   ====================================================================== */
+var MT_REP = null; // admin filter
+function repFilterHTML(id, cur){
+  if(!ME.admin) return "";
+  return '<div class="field"><label for="'+id+'">Rep</label><select id="'+id+'"><option value="">Everyone</option>' +
+    ROSTER.map(function(r){ return '<option value="'+esc(r.email)+'"'+(cur===r.email?" selected":"")+'>'+esc(r.display_name)+'</option>'; }).join("") + '</select></div>';
+}
+renderers.meetings = function(){
+  $("mt-filter").innerHTML = repFilterHTML("mt-rep", MT_REP);
+  if(ME.admin) $("mt-rep").onchange = function(){ MT_REP = $("mt-rep").value || null; renderers.meetings(); };
+  loadSamples();
+  var q = sb.from("meetings").select("*").order("meeting_at",{ascending:false}).limit(40);
+  if(!ME.admin) q = q.eq("rep_email", ME.email); else if(MT_REP) q = q.eq("rep_email", MT_REP);
+  q.then(function(r){
+    var rows = r.data||[];
+    $("mt-list").innerHTML = rows.length ? rows.map(function(m){
+      return '<li class="item" data-id="'+m.id+'"><div><div class="t">'+esc(m.shop)+'</div><div class="s">'+esc([m.contact, m.outcome].filter(Boolean).join(" · "))+(m.next_step? '<br>Next: '+esc(m.next_step)+(m.next_step_due? ' · '+(m.next_step_done?'done':'<span class="'+(m.next_step_due < isoDate(new Date())?'due':'')+'">'+fmtDay(m.next_step_due)+'</span>'):""):"")+'</div></div><div class="r">'+(ME.admin? esc(m.rep_name)+"<br>":"")+fmtDate(m.meeting_at)+'<br><button class="edit">edit</button></div></li>';
+    }).join("") : '<li class="empty">No meetings logged yet.</li>';
+    Array.prototype.forEach.call($("mt-list").querySelectorAll(".edit"), function(b){
+      b.onclick = function(){ var id = b.closest(".item").dataset.id; meetingSheet(rows.filter(function(x){return x.id===id;})[0]); };
+    });
+  });
+};
+$("mt-new").onclick = function(){ meetingSheet(null); };
+function meetingSheet(m, prefill, after){
+  m = m || Object.assign({ shop:"", contact:"", meeting_at:new Date().toISOString(), outcome:"", next_step:"", next_step_due:"", notes:"" }, prefill||{});
+  after = after || function(){ renderers.meetings(); };
+  openSheet(
+    '<h2>'+(m.id?"Edit meeting":"Log a meeting")+'</h2>' +
+    '<div class="field"><label>Shop</label><input type="text" id="f-shop" list="shop-names" value="'+esc(m.shop)+'"></div>' +
+    '<div class="field"><label>Who you met</label><input type="text" id="f-contact" value="'+esc(m.contact||"")+'" placeholder="Buyer, manager, budtender…"></div>' +
+    '<div class="field"><label>When</label><input type="datetime-local" id="f-when" value="'+localInput(m.meeting_at)+'"></div>' +
+    '<div class="field"><label>Outcome</label><input type="text" id="f-outcome" value="'+esc(m.outcome||"")+'" placeholder="Left samples, wants menu, ordering Friday…"></div>' +
+    '<div class="row"><div class="field"><label>Next step</label><input type="text" id="f-next" value="'+esc(m.next_step||"")+'" placeholder="Send menu, call back…"></div><div class="field"><label>Due</label><input type="date" id="f-due" value="'+esc(m.next_step_due||"")+'"></div></div>' +
+    '<div class="field"><label>Notes</label><textarea id="f-notes">'+esc(m.notes||"")+'</textarea></div>' +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">Save</button></div>' +
+    (m.id ? '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Delete this meeting</button>' : ''),
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var row = { rep_email:ME.email, rep_name:ME.name, shop:root.querySelector("#f-shop").value.trim(), contact:root.querySelector("#f-contact").value.trim(),
+          meeting_at:new Date(root.querySelector("#f-when").value).toISOString(), outcome:root.querySelector("#f-outcome").value.trim(), next_step:root.querySelector("#f-next").value.trim(), next_step_due:root.querySelector("#f-due").value || null, notes:root.querySelector("#f-notes").value.trim() };
+        if(row.next_step && !row.next_step_due) row.next_step_due = isoDate(addDays(new Date(),3));
+        if(!row.next_step) row.next_step_done = true;
+        else if(m.next_step_due !== row.next_step_due) row.next_step_done = false;
+        if(!row.shop) return note(root.querySelector("#f-err"), "Which shop?", "bad");
+        if(m.id){ delete row.rep_email; delete row.rep_name; }
+        var q = m.id ? sb.from("meetings").update(row).eq("id", m.id) : sb.from("meetings").insert(row);
+        q.then(function(r){ if(r.error) return note(root.querySelector("#f-err"), bail(r.error), "bad"); closeSheet(); after(); });
+      };
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){ if(!confirm("Delete this meeting?")) return; sb.from("meetings").delete().eq("id", m.id).then(function(){ closeSheet(); renderers.meetings(); }); };
+    });
+}
+
+/* ======================================================================
+   SHOPS
+   ====================================================================== */
+var SHOPS = [], SP_FLAGS = {};
+function loadShops(){
+  return sb.from("shops").select("*").order("name").then(function(r){
+    SHOPS = r.data||[];
+    $("shop-names").innerHTML = SHOPS.map(function(x){ return '<option value="'+esc(x.name)+'">'; }).join("");
+    return SHOPS;
+  });
+}
+function shopByName(name){ name = (name||"").trim().toLowerCase(); return SHOPS.filter(function(x){ return x.name.toLowerCase()===name; })[0] || null; }
+function flagPills(x){
+  return (x.reorder_soon?'<span class="pill lost">reorder soon</span> ':'')+(x.wants_samples?'<span class="pill live">wants samples</span> ':'')+(x.wants_swag?'<span class="pill live">wants swag</span>':'');
+}
+renderers.shops = function(){ loadShops().then(paintShops); };
+function paintShops(){
+  var q = ($("sp-search").value||"").trim().toLowerCase();
+  var rows = SHOPS.filter(function(x){
+    if(q && (x.name+" "+(x.town||"")+" "+(x.address||"")).toLowerCase().indexOf(q) < 0) return false;
+    for(var f in SP_FLAGS){ if(SP_FLAGS[f] && !x[f]) return false; }
+    return true;
+  });
+  $("sp-list").innerHTML = rows.length ? rows.map(function(x){
+    var c = (x.contacts||[])[0];
+    return '<li class="item" data-id="'+x.id+'"><div><div class="t">'+esc(x.name)+'</div><div class="s">'+esc([x.town, c&&c.name].filter(Boolean).join(" · "))+(flagPills(x)?'<br>'+flagPills(x):'')+'</div></div><div class="r"><button class="edit">open</button></div></li>';
+  }).join("") : '<li class="empty">'+(SHOPS.length?"No shops match.":"No shops yet. Add the ones you're working.")+'</li>';
+  Array.prototype.forEach.call($("sp-list").querySelectorAll(".item"), function(li){ li.onclick = function(){ shopProfile(li.dataset.id); }; });
+}
+$("sp-search").addEventListener("input", paintShops);
+$("sp-flags").addEventListener("click", function(e){ var b = e.target.closest(".flag"); if(!b) return; SP_FLAGS[b.dataset.f] = !SP_FLAGS[b.dataset.f]; b.classList.toggle("on", SP_FLAGS[b.dataset.f]); paintShops(); });
+$("sp-new").onclick = function(){ shopEditSheet(null); };
+
+function shopEditSheet(x, after){
+  var isNew = !x; x = x || { name:"", address:"", town:"", notes:"" };
+  openSheet(
+    '<h2>'+(isNew?"Add a shop":"Edit "+esc(x.name))+'</h2>' +
+    '<div class="field"><label>Name</label><input type="text" id="f-name" value="'+esc(x.name)+'"></div>' +
+    '<div class="field"><label>Address</label><input type="text" id="f-addr" value="'+esc(x.address||"")+'"></div>' +
+    '<div class="field"><label>Town</label><input type="text" id="f-town" value="'+esc(x.town||"")+'"></div>' +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">Save</button></div>',
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var row = { name:root.querySelector("#f-name").value.trim(), address:root.querySelector("#f-addr").value.trim(), town:root.querySelector("#f-town").value.trim(), updated_by:ME.email, updated_at:new Date().toISOString() };
+        if(!row.name) return note(root.querySelector("#f-err"), "Needs a name.", "bad");
+        var dupe = shopByName(row.name); if(dupe && dupe.id !== x.id) return note(root.querySelector("#f-err"), row.name+" is already in the list.", "bad");
+        if(isNew) row.created_by = ME.email;
+        var q = isNew ? sb.from("shops").insert(row).select().single() : sb.from("shops").update(row).eq("id", x.id).select().single();
+        q.then(function(r){ if(r.error) return note(root.querySelector("#f-err"), bail(r.error), "bad"); closeSheet(); loadShops().then(function(){ if(after) after(r.data); else if(TAB==="shops") paintShops(); if(isNew) shopProfile(r.data.id); }); });
+      };
+    });
+}
+
+function shopProfile(id, section){
+  var x = SHOPS.filter(function(s){return s.id===id;})[0]; if(!x) return;
+  section = section || "history";
+  var flag = function(k,label){ return '<button class="flag'+(x[k]?" on":"")+(k==="reorder_soon"?" reorder":"")+'" data-k="'+k+'">'+label+'</button>'; };
+  openSheet(
+    '<h2 style="margin-bottom:2px">'+esc(x.name)+'</h2>' +
+    '<p style="margin:0 0 8px;color:var(--muted);font-size:14px">'+esc([x.address, x.town].filter(Boolean).join(", "))+(x.last_order?' · last order '+fmtDay(x.last_order):'')+' <button class="edit" id="p-edit" style="color:var(--live);font-size:14px;padding:0">edit</button></p>' +
+    '<div class="flags">'+flag("wants_samples","Wants samples")+flag("wants_swag","Wants swag")+flag("reorder_soon","Reorder soon")+'</div>' +
+    '<div class="row" style="margin:6px 0 4px"><button class="ghost" id="p-meet">Log meeting</button><button class="ghost" id="p-sample">Log sample</button><button class="ghost" id="p-order">Log order</button><button class="ghost" id="p-popup">Book pop-up</button></div>' +
+    '<div class="row" style="margin:0 0 4px"><button class="ghost" id="p-deal">Pipeline</button><span></span></div>' +
+    '<div class="subtabs"><button data-s="history"'+(section==="history"?' class="on"':'')+'>History</button><button data-s="contacts"'+(section==="contacts"?' class="on"':'')+'>Contacts</button><button data-s="photos"'+(section==="photos"?' class="on"':'')+'>Photos</button><button data-s="notes"'+(section==="notes"?' class="on"':'')+'>Notes</button></div>' +
+    '<div id="p-body"><p class="empty">Loading…</p></div>' +
+    '<div id="p-err" class="notice bad hidden"></div>' +
+    '<button class="ghost" id="f-cancel" style="width:100%;margin-top:14px">Close</button>',
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#p-edit").onclick = function(){ shopEditSheet(x, function(){ shopProfile(id, section); }); };
+      var reopen = function(sec){ return function(){ loadShops().then(function(){ shopProfile(id, sec||section); }); }; };
+      root.querySelector("#p-meet").onclick = function(){ meetingSheet(null, { shop:x.name, contact:((x.contacts||[])[0]||{}).name||"" }, reopen("history")); };
+      root.querySelector("#p-sample").onclick = function(){ sampleSheet(null, { shop:x.name }, reopen("history")); };
+      root.querySelector("#p-deal").onclick = function(){ sb.from("deals").select("*").ilike("shop", x.name).order("updated_at",{ascending:false}).limit(1).then(function(r){ dealSheet((r.data||[])[0]||null, { shop:x.name }, reopen("history")); }); };
+      root.querySelector("#p-order").onclick = function(){ orderSheet(null, { shop:x.name }, reopen("history")); };
+      root.querySelector("#p-popup").onclick = function(){ popupSheet(null, { shop:x.name, address:[x.address,x.town].filter(Boolean).join(", ") }, reopen("history")); };
+      Array.prototype.forEach.call(root.querySelectorAll(".flags .flag"), function(b){
+        b.onclick = function(){
+          var patch = {}; patch[b.dataset.k] = !x[b.dataset.k]; patch.updated_by = ME.email; patch.updated_at = new Date().toISOString();
+          sb.from("shops").update(patch).eq("id", id).then(function(r){ if(r.error) return note(root.querySelector("#p-err"), bail(r.error), "bad"); x[b.dataset.k] = patch[b.dataset.k]; b.classList.toggle("on", x[b.dataset.k]); });
+        };
+      });
+      Array.prototype.forEach.call(root.querySelectorAll(".subtabs button"), function(b){ b.onclick = function(){ shopProfile(id, b.dataset.s); }; });
+      var body = root.querySelector("#p-body");
+      if(section==="history") shopHistory(x, body);
+      if(section==="contacts") shopContacts(x, body, id);
+      if(section==="photos") shopPhotos(x, body, id);
+      if(section==="notes") shopNotes(x, body, id);
+    });
+}
+
+function shopHistory(x, body){
+  var n = x.name;
+  Promise.all([
+    sb.from("meetings").select("*").ilike("shop", n).order("meeting_at",{ascending:false}).limit(20),
+    sb.from("samples").select("*").ilike("shop", n).order("left_at",{ascending:false}).limit(20),
+    sb.from("deals").select("*").ilike("shop", n).order("updated_at",{ascending:false}).limit(5),
+    sb.from("popups").select("*").ilike("shop", n).order("starts_at",{ascending:false}).limit(10),
+    sb.from("shifts").select("*").ilike("event", n).order("clock_in",{ascending:false}).limit(10),
+    sb.from("orders").select("*").ilike("shop", n).order("order_date",{ascending:false}).limit(20)
+  ]).then(function(rs){
+    var L = [];
+    (rs[5].data||[]).forEach(function(o){ L.push({ when:o.order_date, t:"Order · "+fmtMoney(o.subtotal)+(o.invoice_no?" · #"+o.invoice_no:""), s:(o.items||[]).map(function(i){return i.product+" ×"+i.qty;}).join(", ")+" · "+o.status, who:o.rep_name }); });
+    (rs[0].data||[]).forEach(function(m){ L.push({ when:m.meeting_at, t:"Meeting"+(m.contact?" with "+m.contact:""), s:[m.outcome, m.next_step?"Next: "+m.next_step:""].filter(Boolean).join(" · "), who:m.rep_name }); });
+    (rs[1].data||[]).forEach(function(z){ L.push({ when:z.left_at, t:"Sample · "+z.strain+" "+Number(z.quantity)+z.unit, s:z.followed_up?"Followed up":"Follow up "+fmtDay(z.follow_up_due), who:z.rep_name }); });
+    (rs[3].data||[]).forEach(function(p){ L.push({ when:p.starts_at, t:"Pop-up", s:p.notes_after||p.notes_before||"", who:p.rep_name }); });
+    (rs[4].data||[]).forEach(function(h){ L.push({ when:h.clock_in, t:"Worked "+Number(h.hours).toFixed(1)+" h", s:h.notes||"", who:h.rep_name }); });
+    L.sort(function(a,b){ return new Date(b.when)-new Date(a.when); });
+    var deal = (rs[2].data||[])[0];
+    body.innerHTML = (deal ? '<div class="notice" style="margin:10px 0 4px">Pipeline: <b style="color:var(--text)">'+stageLabel(deal.stage)+'</b> · '+fmtMoney(deal.value)+' · '+esc(deal.rep_name)+'</div>' : '') +
+      (L.length ? '<ul class="list">'+L.map(function(l){ return '<li class="item"><div><div class="t">'+esc(l.t)+'</div><div class="s">'+esc(l.s)+'</div></div><div class="r">'+esc(l.who)+'<br>'+fmtDate(l.when)+'</div></li>'; }).join("")+'</ul>' : '<p class="empty">Nothing logged at this shop yet.</p>');
+  });
+}
+
+function shopContacts(x, body, id){
+  var cs = x.contacts||[];
+  body.innerHTML = (cs.length ? cs.map(function(c,i){
+    return '<div class="contact"><b>'+esc(c.name)+(c.role?' <span>· '+esc(c.role)+'</span>':'')+'</b>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a> ':'')+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+(c.notes?'<span><br>'+esc(c.notes)+'</span>':'')+' <button class="edit" data-i="'+i+'" style="color:var(--live);font-size:14px;padding:0">edit</button></div>';
+  }).join("") : '<p class="empty">No contacts yet.</p>') + '<button class="ghost" id="c-add" style="width:100%;margin-top:12px">Add a contact</button>';
+  var edit = function(i){
+    var c = i==null ? { name:"", role:"", phone:"", email:"", notes:"" } : cs[i];
+    openSheet(
+      '<h2>'+(i==null?"Add a contact":esc(c.name))+'</h2>' +
+      '<div class="field"><label>Name</label><input type="text" id="f-name" value="'+esc(c.name)+'"></div>' +
+      '<div class="field"><label>Role</label><input type="text" id="f-role" value="'+esc(c.role||"")+'" placeholder="Buyer, GM, budtender…"></div>' +
+      '<div class="row"><div class="field"><label>Phone</label><input type="text" id="f-phone" inputmode="tel" value="'+esc(c.phone||"")+'"></div><div class="field"><label>Email</label><input type="text" id="f-email" inputmode="email" value="'+esc(c.email||"")+'"></div></div>' +
+      '<div class="field"><label>Notes</label><input type="text" id="f-cnotes" value="'+esc(c.notes||"")+'" placeholder="Best days to catch them, what they like…"></div>' +
+      '<div id="f-err" class="notice bad hidden"></div>' +
+      '<div class="actions"><button class="ghost" id="f-cancel">Back</button><button class="big" id="f-save">Save</button></div>' +
+      (i==null ? '' : '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Remove contact</button>'),
+      function(root){
+        var back = function(){ loadShops().then(function(){ shopProfile(id, "contacts"); }); };
+        root.querySelector("#f-cancel").onclick = back;
+        root.querySelector("#f-save").onclick = function(){
+          var nc = { name:root.querySelector("#f-name").value.trim(), role:root.querySelector("#f-role").value.trim(), phone:root.querySelector("#f-phone").value.trim(), email:root.querySelector("#f-email").value.trim(), notes:root.querySelector("#f-cnotes").value.trim() };
+          if(!nc.name) return note(root.querySelector("#f-err"), "Needs a name.", "bad");
+          var next = cs.slice(); if(i==null) next.push(nc); else next[i] = nc;
+          sb.from("shops").update({ contacts:next, updated_by:ME.email, updated_at:new Date().toISOString() }).eq("id", id).then(function(r){ if(r.error) return note(root.querySelector("#f-err"), bail(r.error), "bad"); back(); });
+        };
+        var del = root.querySelector("#f-delete");
+        if(del) del.onclick = function(){ var next = cs.slice(); next.splice(i,1); sb.from("shops").update({ contacts:next, updated_by:ME.email, updated_at:new Date().toISOString() }).eq("id", id).then(back); };
+      });
+  };
+  body.querySelector("#c-add").onclick = function(){ edit(null); };
+  Array.prototype.forEach.call(body.querySelectorAll(".edit"), function(b){ b.onclick = function(){ edit(+b.dataset.i); }; });
+}
+
+function shopPhotos(x, body, id){
+  sb.from("gallery_photos").select("*").eq("shop_id", id).order("created_at",{ascending:false}).limit(60).then(function(r){
+    var rows = r.data||[];
+    var group = function(kind, title){
+      var g = rows.filter(function(p){ return p.kind===kind; });
+      return '<h2 style="margin-top:16px">'+title+'</h2><div class="strip" data-kind="'+kind+'">'+g.map(function(p){ return '<button type="button" data-id="'+p.id+'"><img alt=""></button>'; }).join("")+'<button type="button" class="add" data-add="'+kind+'">Add</button></div>';
+    };
+    body.innerHTML = group("shelf","On the shelf") + group("menu","Menu") + group("other","Other");
+    if(rows.length){
+      sb.storage.from("gallery").createSignedUrls(rows.map(function(p){return p.path;}), 3600).then(function(u){
+        (u.data||[]).forEach(function(s,i){ rows[i].url = s.signedUrl; var b = body.querySelector('button[data-id="'+rows[i].id+'"]'); if(b && s.signedUrl){ b.querySelector("img").src = s.signedUrl; b.onclick = function(){ photoSheet({ src:"uploads", bucket:"gallery", path:rows[i].path, url:s.signedUrl, when:rows[i].taken_at||rows[i].created_at, who:rows[i].rep_name, label:x.name, cap:rows[i].caption||"", id:rows[i].id, mine:rows[i].rep_email===ME.email, back:function(){ shopProfile(id,"photos"); } }); }; } });
+      });
+    }
+    Array.prototype.forEach.call(body.querySelectorAll("[data-add]"), function(b){
+      b.onclick = function(){
+        var kind = b.dataset.add;
+        var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true;
+        inp.onchange = function(){
+          var files = Array.prototype.slice.call(inp.files||[]).slice(0,8); if(!files.length) return;
+          b.textContent = "…"; b.disabled = true; var n = 0;
+          files.reduce(function(chain,f){ return chain.then(function(){ n++; return exifTakenAt(f).then(function(t){ return shrink(f).then(function(blob){
+            var path = ME.email.replace(/[^a-z0-9]/g,"_")+"/"+Date.now()+"-"+n+".jpg";
+            return sb.storage.from("gallery").upload(path, blob, {contentType:"image/jpeg"}).then(function(r){ if(r.error) throw r.error;
+              return sb.from("gallery_photos").insert({ rep_email:ME.email, rep_name:ME.name, path:path, caption:"", shop:x.name, shop_id:id, kind:kind, taken_at:t?new Date(t).toISOString():null }); }); }); }); }); }, Promise.resolve())
+          .then(function(){ shopProfile(id,"photos"); })
+          .catch(function(e){ note(document.getElementById("p-err"), bail(e), "bad"); b.textContent="Add"; b.disabled=false; });
+        };
+        inp.click();
+      };
+    });
+  });
+}
+
+function shopNotes(x, body, id){
+  body.innerHTML = '<div class="field" style="margin-top:12px"><label>Running notes on this shop</label><textarea id="n-text" style="min-height:160px" placeholder="Parking, who to ask for, what moves here, what they said last time…">'+esc(x.notes||"")+'</textarea></div>' +
+    '<div class="field"><label>Last order date</label><input type="date" id="n-last" value="'+esc(x.last_order||"")+'"></div>' +
+    '<button class="big quiet" id="n-save">Save notes</button>';
+  body.querySelector("#n-save").onclick = function(){
+    var b = body.querySelector("#n-save"); b.disabled = true; b.textContent = "Saving…";
+    sb.from("shops").update({ notes:body.querySelector("#n-text").value.trim(), last_order:body.querySelector("#n-last").value||null, updated_by:ME.email, updated_at:new Date().toISOString() }).eq("id", id)
+      .then(function(r){ b.disabled=false; if(r.error){ b.textContent="Save notes"; return note(document.getElementById("p-err"), bail(r.error), "bad"); } b.textContent="Saved"; setTimeout(function(){ b.textContent="Save notes"; },1500); loadShops(); });
+  };
+}
+
+/* ======================================================================
+   ORDERS
+   ====================================================================== */
+var PRODUCTS = [];
+var ORDER_STATUS = [["placed","Placed"],["delivered","Delivered"],["paid","Paid"]];
+function loadProducts(){
+  return sb.from("products").select("*").eq("active", true).order("sort").then(function(r){
+    PRODUCTS = r.data||[];
+    $("product-names").innerHTML = PRODUCTS.map(function(x){ return '<option value="'+esc(x.name)+'">'; }).join("");
+  });
+}
+function productByName(n){ n = (n||"").trim().toLowerCase(); return PRODUCTS.filter(function(x){ return x.name.toLowerCase()===n; })[0] || null; }
+function loadOrders(){
+  var q = sb.from("orders").select("*").order("order_date",{ascending:false}).limit(30);
+  if(!ME.admin) q = q.eq("rep_email", ME.email); else if(DL_REP) q = q.eq("rep_email", DL_REP);
+  q.then(function(r){
+    var rows = r.data||[];
+    $("or-list").innerHTML = rows.length ? rows.map(function(o){
+      var st = o.status==="paid" ? '<span class="pill won">paid</span>' : o.status==="delivered" ? '<span class="pill">delivered</span>' : '<span class="pill live">placed</span>';
+      return '<li class="item" data-id="'+o.id+'"><div><div class="t">'+esc(o.shop)+'</div><div class="s">'+esc((o.items||[]).map(function(i){return i.product+" ×"+i.qty;}).join(", "))+(ME.admin?' · '+esc(o.rep_name):'')+'<br>'+st+(o.invoice_no?' <span class="pill">#'+esc(o.invoice_no)+'</span>':'')+'</div></div><div class="r">'+fmtMoney(o.subtotal)+'<br>'+fmtDay(o.order_date)+'<br><button class="edit">edit</button></div></li>';
+    }).join("") : '<li class="empty">No orders logged yet.</li>';
+    Array.prototype.forEach.call($("or-list").querySelectorAll(".edit"), function(b){
+      b.onclick = function(){ var id = b.closest(".item").dataset.id; orderSheet(rows.filter(function(x){return x.id===id;})[0]); };
+    });
+  });
+}
+function orderSheet(o, prefill, after){
+  var isNew = !o;
+  after = after || function(){ renderers.pipeline(); };
+  o = o || Object.assign({ shop:"", order_date:isoDate(new Date()), invoice_no:"", items:[{product:"",unit:"",qty:1,price:""}], status:"placed", notes:"" }, prefill||{});
+  var items = (o.items && o.items.length ? o.items : [{product:"",unit:"",qty:1,price:""}]).map(function(i){ return Object.assign({}, i); });
+  var rate = isNew ? ME.rate : Number(o.commission_rate)||0;
+  openSheet(
+    '<h2>'+(isNew?"Log an order":esc(o.shop)+" — "+fmtDay(o.order_date))+'</h2>' +
+    '<div class="field"><label>Shop</label><input type="text" id="f-shop" list="shop-names" value="'+esc(o.shop)+'"></div>' +
+    '<div class="row"><div class="field"><label>Order date</label><input type="date" id="f-date" value="'+esc(o.order_date)+'"></div><div class="field"><label>Invoice #</label><input type="text" id="f-inv" value="'+esc(o.invoice_no||"")+'" placeholder="optional"></div></div>' +
+    '<label>What they bought</label><div class="line-h"><span>Product</span><span>Qty</span><span>Each</span><span></span></div><div id="f-lines"></div>' +
+    '<button class="ghost" id="f-addline" style="width:100%">Add a line</button>' +
+    '<div class="total"><span>Order total</span><b id="f-total">$0</b></div>' +
+    (rate ? '<p class="hint" style="margin:-6px 0 12px">Commission at '+(rate*100).toFixed(rate*100%1?1:0)+'%: <span id="f-comm">$0</span></p>' : '') +
+    '<div class="row"><div class="field"><label>Status</label><select id="f-status">'+ORDER_STATUS.map(function(x){ return '<option value="'+x[0]+'"'+(o.status===x[0]?" selected":"")+'>'+x[1]+'</option>'; }).join("")+'</select></div><div></div></div>' +
+    '<div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Delivery window, terms, who signed…">'+esc(o.notes||"")+'</textarea></div>' +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">'+(isNew?"Log it":"Save")+'</button></div>' +
+    (isNew ? '' : '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Delete order</button>'),
+    function(root){
+      var linesEl = root.querySelector("#f-lines");
+      function total(){ return items.reduce(function(a,i){ return a + (parseFloat(i.qty)||0)*(parseFloat(i.price)||0); }, 0); }
+      function paintTotal(){ var t = total(); root.querySelector("#f-total").textContent = "$"+t.toLocaleString([], {minimumFractionDigits:2, maximumFractionDigits:2}); var c = root.querySelector("#f-comm"); if(c) c.textContent = "$"+(t*rate).toFixed(2); }
+      function paintLines(){
+        linesEl.innerHTML = items.map(function(i,idx){
+          return '<div class="line"><input type="text" list="product-names" data-i="'+idx+'" data-k="product" value="'+esc(i.product)+'" placeholder="Strain / product"><input type="number" inputmode="decimal" min="0" step="0.5" data-i="'+idx+'" data-k="qty" value="'+esc(i.qty)+'"><input type="number" inputmode="decimal" min="0" step="1" data-i="'+idx+'" data-k="price" value="'+esc(i.price)+'" placeholder="$"><button type="button" data-rm="'+idx+'" aria-label="Remove line">&times;</button></div>';
+        }).join("");
+        Array.prototype.forEach.call(linesEl.querySelectorAll("input"), function(inp){
+          inp.addEventListener("input", function(){
+            var it = items[+inp.dataset.i]; it[inp.dataset.k] = inp.value;
+            if(inp.dataset.k==="product"){ var pr = productByName(inp.value); if(pr){ it.unit = pr.unit; if(!it.price || it.price==="" ) { it.price = pr.price; var pe = linesEl.querySelector('input[data-i="'+inp.dataset.i+'"][data-k="price"]'); if(pe) pe.value = pr.price; } } }
+            paintTotal();
+          });
+        });
+        Array.prototype.forEach.call(linesEl.querySelectorAll("[data-rm]"), function(b){ b.onclick = function(){ items.splice(+b.dataset.rm,1); if(!items.length) items.push({product:"",unit:"",qty:1,price:""}); paintLines(); paintTotal(); }; });
+        paintTotal();
+      }
+      paintLines();
+      root.querySelector("#f-addline").onclick = function(){ items.push({product:"",unit:"",qty:1,price:""}); paintLines(); linesEl.lastElementChild.querySelector("input").focus(); };
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var save = root.querySelector("#f-save");
+        var shop = root.querySelector("#f-shop").value.trim();
+        var clean = items.filter(function(i){ return (i.product||"").trim(); }).map(function(i){ return { product:i.product.trim(), unit:i.unit||"", qty:parseFloat(i.qty)||0, price:parseFloat(i.price)||0 }; });
+        if(!shop) return note(root.querySelector("#f-err"), "Which shop?", "bad");
+        if(!clean.length) return note(root.querySelector("#f-err"), "Add at least one line.", "bad");
+        var sub = +clean.reduce(function(a,i){ return a + i.qty*i.price; },0).toFixed(2);
+        var sh = shopByName(shop);
+        var row = { shop:shop, shop_id: sh? sh.id : null, order_date:root.querySelector("#f-date").value || isoDate(new Date()), invoice_no:root.querySelector("#f-inv").value.trim(), items:clean, subtotal:sub, commission_rate:rate, commission:+(sub*rate).toFixed(2), status:root.querySelector("#f-status").value, notes:root.querySelector("#f-notes").value.trim() };
+        if(isNew){ row.rep_email = ME.email; row.rep_name = ME.name; }
+        save.disabled = true; save.textContent = "Saving…";
+        var q = isNew ? sb.from("orders").insert(row) : sb.from("orders").update(row).eq("id", o.id);
+        q.then(function(r){
+          if(r.error) throw r.error;
+          // Ripple: pipeline moves to order placed, shop's last-order date updates. Neither blocks the save.
+          var ripple = [];
+          ripple.push(sb.from("deals").select("id,stage").ilike("shop", shop).order("updated_at",{ascending:false}).limit(1).then(function(d){
+            var deal = (d.data||[])[0]; var patch = { stage:"order_placed", value:sub, updated_at:new Date().toISOString() };
+            if(deal){ if(deal.stage==="won"||deal.stage==="paid") return; return sb.from("deals").update(patch).eq("id", deal.id); }
+            return sb.from("deals").insert(Object.assign({ rep_email:ME.email, rep_name:ME.name, shop:shop, notes:"Created from order" }, patch));
+          }));
+          if(sh) ripple.push(sb.from("shops").update({ last_order:row.order_date, reorder_soon:false, updated_by:ME.email, updated_at:new Date().toISOString() }).eq("id", sh.id));
+          return Promise.all(ripple).catch(function(){});
+        }).then(function(){ closeSheet(); loadShops(); after(); })
+          .catch(function(e){ save.disabled=false; save.textContent = isNew?"Log it":"Save"; note(root.querySelector("#f-err"), bail(e), "bad"); });
+      };
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){ if(!confirm("Delete this order?")) return; sb.from("orders").delete().eq("id", o.id).then(function(){ closeSheet(); after(); }); };
+    });
+}
+
+/* ---------- CSV export ---------- */
+function downloadCSV(name, header, rows){
+  var q = function(v){ v = v==null ? "" : String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  var csv = [header].concat(rows).map(function(r){ return r.map(q).join(","); }).join("\n");
+  var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* ======================================================================
+   SAMPLES
+   ====================================================================== */
+function loadSamples(){
+  var q = sb.from("samples").select("*").order("left_at",{ascending:false}).limit(40);
+  if(!ME.admin) q = q.eq("rep_email", ME.email); else if(MT_REP) q = q.eq("rep_email", MT_REP);
+  q.then(function(r){
+    var rows = r.data||[];
+    var seen = {}; $("strain-names").innerHTML = rows.filter(function(x){ if(seen[x.strain]) return false; seen[x.strain]=1; return true; }).map(function(x){ return '<option value="'+esc(x.strain)+'">'; }).join("");
+    $("sm-list").innerHTML = rows.length ? rows.map(function(x){
+      var status = x.followed_up ? '<span class="pill won">followed up</span>' : (x.follow_up_due && x.follow_up_due < isoDate(new Date()) ? '<span class="pill lost">overdue</span>' : '<span class="pill">follow up '+fmtDay(x.follow_up_due)+'</span>');
+      return '<li class="item" data-id="'+x.id+'"><div><div class="t">'+esc(x.shop)+'</div><div class="s">'+esc(x.strain)+' · '+Number(x.quantity)+esc(x.unit)+(ME.admin?' · '+esc(x.rep_name):'')+'<br>'+status+'</div></div><div class="r">'+fmtDay(x.left_at)+'<br><button class="edit">edit</button></div></li>';
+    }).join("") : '<li class="empty">No samples out.</li>';
+    Array.prototype.forEach.call($("sm-list").querySelectorAll(".edit"), function(b){
+      b.onclick = function(){ var id = b.closest(".item").dataset.id; sampleSheet(rows.filter(function(x){return x.id===id;})[0]); };
+    });
+  });
+}
+$("sm-new").onclick = function(){ sampleSheet(null); };
+function sampleSheet(x, prefill, after){
+  var isNew = !x;
+  after = after || loadSamples;
+  x = x || { shop:(prefill&&prefill.shop)||"", strain:"", quantity:"", unit:"g", left_at:isoDate(new Date()), notes:"", follow_up_due:isoDate(addDays(new Date(),7)), followed_up:false };
+  openSheet(
+    '<h2>'+(isNew?"Log a sample drop":esc(x.shop)+" — "+esc(x.strain))+'</h2>' +
+    '<div class="field"><label>Shop</label><input type="text" id="f-shop" list="shop-names" value="'+esc(x.shop)+'"></div>' +
+    '<div class="field"><label>Strain</label><input type="text" id="f-strain" list="strain-names" value="'+esc(x.strain)+'"></div>' +
+    '<div class="row"><div class="field"><label>How much</label><input type="number" id="f-qty" inputmode="decimal" min="0" step="0.5" value="'+esc(x.quantity)+'"></div><div class="field"><label>Unit</label><select id="f-unit"><option value="g"'+(x.unit==="g"?" selected":"")+'>grams</option><option value="pk"'+(x.unit==="pk"?" selected":"")+'>pre-packs</option><option value="pr"'+(x.unit==="pr"?" selected":"")+'>pre-rolls</option></select></div></div>' +
+    '<div class="row"><div class="field"><label>Left on</label><input type="date" id="f-left" value="'+esc(x.left_at)+'"></div><div class="field"><label>Follow up by</label><input type="date" id="f-due" value="'+esc(x.follow_up_due||"")+'"></div></div>' +
+    '<div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Who has it, what they said…">'+esc(x.notes||"")+'</textarea></div>' +
+    (isNew ? '' : '<div class="field"><label style="display:flex;align-items:center;gap:10px;color:var(--text)"><input type="checkbox" id="f-fu" style="width:22px;height:22px"'+(x.followed_up?" checked":"")+'> Followed up</label></div>') +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">Save</button></div>' +
+    (isNew ? '' : '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Delete</button>'),
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var row = { shop:root.querySelector("#f-shop").value.trim(), strain:root.querySelector("#f-strain").value.trim(), quantity:parseFloat(root.querySelector("#f-qty").value)||0, unit:root.querySelector("#f-unit").value,
+          left_at:root.querySelector("#f-left").value || isoDate(new Date()), follow_up_due:root.querySelector("#f-due").value || null, notes:root.querySelector("#f-notes").value.trim() };
+        if(!isNew) row.followed_up = root.querySelector("#f-fu").checked;
+        if(!row.shop || !row.strain) return note(root.querySelector("#f-err"), "Need the shop and the strain.", "bad");
+        if(isNew){ row.rep_email = ME.email; row.rep_name = ME.name; }
+        var q = isNew ? sb.from("samples").insert(row) : sb.from("samples").update(row).eq("id", x.id);
+        q.then(function(r){ if(r.error) return note(root.querySelector("#f-err"), bail(r.error), "bad"); closeSheet(); after(); });
+      };
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){ if(!confirm("Delete this sample record?")) return; sb.from("samples").delete().eq("id", x.id).then(function(){ closeSheet(); loadSamples(); }); };
+    });
+}
+
+/* ======================================================================
+   PHOTOS
+   ====================================================================== */
+var PH_FILTER = "all", PH_ITEMS = [], PH_SHOWN = 0, PH_PAGE = 30;
+$("ph-chips").addEventListener("click", function(e){
+  var c = e.target.closest(".chip"); if(!c) return;
+  PH_FILTER = c.dataset.f;
+  Array.prototype.forEach.call($("ph-chips").querySelectorAll(".chip"), function(x){ x.classList.toggle("on", x===c); });
+  paintGallery(true);
+});
+renderers.photos = function(){
+  hide($("ph-err"));
+  Promise.all([
+    sb.from("shifts").select("id,rep_name,event,clock_in,photo_paths,photo_taken_at").neq("photo_paths","{}").order("clock_in",{ascending:false}).limit(120),
+    sb.from("gallery_photos").select("*").order("created_at",{ascending:false}).limit(300)
+  ]).then(function(rs){
+    PH_ITEMS = [];
+    (rs[0].data||[]).forEach(function(s){ (s.photo_paths||[]).forEach(function(path,i){ PH_ITEMS.push({ src:"popups", bucket:"shift-photos", path:path, when:(s.photo_taken_at&&s.photo_taken_at[i])||s.clock_in, who:s.rep_name, label:s.event, cap:"" }); }); });
+    (rs[1].data||[]).forEach(function(g){ PH_ITEMS.push({ src:"uploads", bucket:"gallery", path:g.path, when:g.taken_at||g.created_at, who:g.rep_name, label:(g.shop||"")+(g.kind&&g.kind!=="other"?" · "+g.kind:""), cap:g.caption||"", id:g.id, mine:g.rep_email===ME.email }); });
+    PH_ITEMS.sort(function(a,b){ return new Date(b.when)-new Date(a.when); });
+    paintGallery(true);
+  });
+};
+function paintGallery(reset){
+  var items = PH_ITEMS.filter(function(x){ return PH_FILTER==="all" || x.src===PH_FILTER; });
+  if(reset){ PH_SHOWN = 0; $("ph-grid").innerHTML = ""; }
+  var slice = items.slice(PH_SHOWN, PH_SHOWN+PH_PAGE); PH_SHOWN += slice.length;
+  $("ph-empty").classList.toggle("hidden", items.length>0);
+  $("ph-more").classList.toggle("hidden", PH_SHOWN >= items.length);
+  if(!slice.length) return;
+  var byBucket = {}; slice.forEach(function(x){ (byBucket[x.bucket] = byBucket[x.bucket]||[]).push(x); });
+  Promise.all(Object.keys(byBucket).map(function(bk){
+    return sb.storage.from(bk).createSignedUrls(byBucket[bk].map(function(x){return x.path;}), 3600).then(function(r){ (r.data||[]).forEach(function(u,i){ byBucket[bk][i].url = u.signedUrl; }); });
+  })).then(function(){
+    slice.forEach(function(x){
+      if(!x.url) return;
+      var b = document.createElement("button"); b.type = "button";
+      var img = document.createElement("img"); img.loading = "lazy"; img.src = x.url; img.alt = x.label||"photo";
+      b.appendChild(img); b.onclick = function(){ photoSheet(x); };
+      $("ph-grid").appendChild(b);
+    });
+  });
+}
+$("ph-more").onclick = function(){ paintGallery(false); };
+function photoSheet(x){
+  openSheet(
+    '<img class="full" src="'+esc(x.url)+'" alt="">' +
+    '<div class="tally" style="margin-top:14px"><div><dt>'+(x.src==="popups"?"Pop-up":"Shop")+'</dt><b>'+esc(x.label||"—")+'</b></div><div><dt>Taken</dt><b>'+fmtDate(x.when)+' '+fmtTime(x.when)+'</b></div><div><dt>By</dt><b>'+esc(x.who)+'</b></div></div>' +
+    (x.cap ? '<p style="margin:14px 0 0;color:var(--muted);font-size:15px">'+esc(x.cap)+'</p>' : '') +
+    '<div class="actions" style="margin-top:16px"><button class="ghost" id="f-cancel">Close</button><a class="ghost" style="text-align:center;text-decoration:none;display:block" href="'+esc(x.url)+'" download target="_blank" rel="noopener">Download</a></div>' +
+    ((x.src==="uploads" && (x.mine||ME.admin)) ? '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Delete photo</button>' : ''),
+    function(root){
+      root.querySelector("#f-cancel").onclick = x.back || closeSheet;
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){
+        if(!confirm("Delete this photo for everyone?")) return;
+        sb.storage.from("gallery").remove([x.path]).then(function(){ return sb.from("gallery_photos").delete().eq("id", x.id); }).then(function(){ if(x.back) x.back(); else { closeSheet(); renderers.photos(); } });
+      };
+    });
+}
+$("ph-add").onclick = function(){ $("ph-picker").click(); };
+$("ph-picker").onchange = function(){
+  var files = Array.prototype.slice.call($("ph-picker").files||[]).slice(0,12);
+  $("ph-picker").value = "";
+  if(!files.length) return;
+  openSheet(
+    '<h2>'+files.length+' photo'+(files.length>1?'s':'')+'</h2>' +
+    '<div class="field"><label>Shop or place (optional)</label><input type="text" id="f-shop" list="shop-names" placeholder="Farm, Kingston facility, a dispensary…"></div>' +
+    '<div class="field"><label>Caption (optional)</label><input type="text" id="f-cap" placeholder="What is this"></div>' +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">Upload</button></div>',
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var save = root.querySelector("#f-save"); save.disabled = true;
+        var shop = root.querySelector("#f-shop").value.trim(), cap = root.querySelector("#f-cap").value.trim(), n = 0;
+        files.reduce(function(chain, f){ return chain.then(function(){
+          save.textContent = "Uploading "+(++n)+" of "+files.length+"…";
+          return exifTakenAt(f).then(function(t){ return shrink(f).then(function(blob){
+            var path = ME.email.replace(/[^a-z0-9]/g,"_") + "/" + Date.now() + "-" + n + ".jpg";
+            return sb.storage.from("gallery").upload(path, blob, { contentType:"image/jpeg" }).then(function(r){ if(r.error) throw r.error;
+              var sh = shopByName(shop);
+              return sb.from("gallery_photos").insert({ rep_email:ME.email, rep_name:ME.name, path:path, caption:cap, shop:shop, shop_id: sh? sh.id : null, kind:"other", taken_at: t? new Date(t).toISOString() : null }); });
+          }); });
+        }); }, Promise.resolve())
+        .then(function(){ closeSheet(); renderers.photos(); })
+        .catch(function(e){ save.disabled=false; save.textContent="Upload"; note(root.querySelector("#f-err"), bail(e), "bad"); });
+      };
+    });
+};
+
+/* ======================================================================
+   PIPELINE
+   ====================================================================== */
+var DL_REP = null;
+renderers.pipeline = function(){
+  $("dl-filter").innerHTML = repFilterHTML("dl-rep", DL_REP);
+  if(ME.admin) $("dl-rep").onchange = function(){ DL_REP = $("dl-rep").value || null; renderers.pipeline(); };
+  loadOrders();
+  var q = sb.from("deals").select("*").order("updated_at",{ascending:false});
+  if(!ME.admin) q = q.eq("rep_email", ME.email); else if(DL_REP) q = q.eq("rep_email", DL_REP);
+  q.then(function(r){
+    var rows = r.data||[];
+    var open = rows.filter(function(d){ return d.stage!=="won" && d.stage!=="lost"; });
+    var openVal = open.reduce(function(a,d){ return a+Number(d.value||0); },0);
+    var html = '<div class="stats"><div class="stat"><b>'+open.length+'</b><span>open shops</span></div><div class="stat"><b>'+fmtMoney(openVal)+'</b><span>in play</span></div></div>';
+    STAGES.forEach(function(st){
+      var g = rows.filter(function(d){ return d.stage===st[0]; });
+      if(!g.length) return;
+      html += '<div class="stagehead"><b>'+st[1]+'</b><span>'+g.length+' · '+fmtMoney(g.reduce(function(a,d){return a+Number(d.value||0);},0))+'</span></div><ul class="list">';
+      html += g.map(function(d){
+        return '<li class="item" data-id="'+d.id+'"><div><div class="t">'+esc(d.shop)+'</div><div class="s">'+(ME.admin? esc(d.rep_name)+" · ":"")+esc(d.notes||"")+'</div></div><div class="r">'+fmtMoney(d.value)+'<br><button class="edit">move</button></div></li>';
+      }).join("") + '</ul>';
+    });
+    if(!rows.length) html += '<p class="empty">Nothing in the pipeline. Add the shops you\'re working.</p>';
+    $("dl-board").innerHTML = html;
+    Array.prototype.forEach.call($("dl-board").querySelectorAll(".edit"), function(b){
+      b.onclick = function(){ var id = b.closest(".item").dataset.id; dealSheet(rows.filter(function(x){return x.id===id;})[0]); };
+    });
+  });
+};
+$("dl-new").onclick = function(){ dealSheet(null); };
+$("or-new").onclick = function(){ orderSheet(null); };
+function dealSheet(d, prefill, after){
+  d = d || Object.assign({ shop:"", stage:"lead", value:0, notes:"" }, prefill||{});
+  after = after || function(){ renderers.pipeline(); };
+  openSheet(
+    '<h2>'+(d.id?esc(d.shop):"Add a shop")+'</h2>' +
+    '<div class="field"><label>Shop</label><input type="text" id="f-shop" list="shop-names" value="'+esc(d.shop)+'"></div>' +
+    '<div class="field"><label>Stage</label><select id="f-stage">'+STAGES.map(function(s){ return '<option value="'+s[0]+'"'+(d.stage===s[0]?" selected":"")+'>'+s[1]+'</option>'; }).join("")+'</select></div>' +
+    '<div class="field"><label>Expected order value</label><input type="number" id="f-value" inputmode="decimal" min="0" step="50" value="'+(Number(d.value)||"")+'"></div>' +
+    '<div class="field"><label>What\'s the story</label><textarea id="f-notes">'+esc(d.notes||"")+'</textarea></div>' +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">Save</button></div>' +
+    (d.id ? '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Remove from pipeline</button>' : ''),
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      root.querySelector("#f-save").onclick = function(){
+        var row = { rep_email:ME.email, rep_name:ME.name, shop:root.querySelector("#f-shop").value.trim(), stage:root.querySelector("#f-stage").value, value:parseFloat(root.querySelector("#f-value").value)||0, notes:root.querySelector("#f-notes").value.trim(), updated_at:new Date().toISOString() };
+        if(!row.shop) return note(root.querySelector("#f-err"), "Which shop?", "bad");
+        if(d.id){ delete row.rep_email; delete row.rep_name; }
+        var q = d.id ? sb.from("deals").update(row).eq("id", d.id) : sb.from("deals").insert(row);
+        q.then(function(r){ if(r.error) return note(root.querySelector("#f-err"), bail(r.error), "bad"); closeSheet(); after(); });
+      };
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){ if(!confirm("Remove "+d.shop+" from the pipeline?")) return; sb.from("deals").delete().eq("id", d.id).then(function(){ closeSheet(); renderers.pipeline(); }); };
+    });
+}
+
+/* ======================================================================
+   POP-UPS + CALENDAR
+   ====================================================================== */
+var PU_WEEK = startOfWeek(new Date());
+$("pu-prev").onclick = function(){ PU_WEEK = addDays(PU_WEEK,-7); renderers.popups(); };
+$("pu-next").onclick = function(){ PU_WEEK = addDays(PU_WEEK,7); renderers.popups(); };
+$("pu-new").onclick = function(){ popupSheet(null); };
+
+renderers.popups = function(){
+  $("pu-week").textContent = weekLabel(PU_WEEK);
+  var ws = PU_WEEK, we = addDays(ws,7);
+  var mine = !ME.admin;
+  var pq = sb.from("popups").select("*").gte("starts_at", ws.toISOString()).lt("starts_at", we.toISOString()).order("starts_at");
+  var mq = sb.from("meetings").select("*").gte("meeting_at", ws.toISOString()).lt("meeting_at", we.toISOString()).order("meeting_at");
+  if(mine){ pq = pq.eq("rep_email", ME.email); mq = mq.eq("rep_email", ME.email); }
+  var gq = gcal("GET", "events?singleEvents=true&orderBy=startTime&timeMin="+encodeURIComponent(ws.toISOString())+"&timeMax="+encodeURIComponent(we.toISOString())+"&maxResults=60")
+    .then(function(d){ hide($("gcal-state")); return (d && d.items) || []; })
+    .catch(function(e){ note($("gcal-state"), e.message==="NO_GCAL" ? "Google Calendar isn't connected — sign out and back in to reconnect it." : e.message, "bad"); return []; });
+
+  Promise.all([pq, mq, gq]).then(function(rs){
+    var pops = rs[0].data||[], mts = rs[1].data||[], gev = rs[2];
+    var appIds = {}; pops.forEach(function(p){ if(p.gcal_event_id) appIds[p.gcal_event_id]=1; });
+    var html = "";
+    for(var i=0;i<7;i++){
+      var d = addDays(ws,i);
+      var items = [];
+      pops.filter(function(p){ return sameDay(p.starts_at,d); }).forEach(function(p){ items.push({ when:p.starts_at, html:'<li class="item" data-pid="'+p.id+'"><div><div class="t">'+esc(p.shop)+' <span class="pill live">pop-up</span>'+(p.gcal_event_id?' <span class="pill g">synced</span>':'')+'</div><div class="s">'+(ME.admin?esc(p.rep_name)+" · ":"")+esc(p.address||"")+(p.notes_before?'<br>'+esc(p.notes_before):"")+'</div></div><div class="r">'+fmtTime(p.starts_at)+'–'+fmtTime(p.ends_at)+'<br><button class="edit">open</button></div></li>' }); });
+      mts.filter(function(m){ return sameDay(m.meeting_at,d); }).forEach(function(m){ items.push({ when:m.meeting_at, html:'<li class="item"><div><div class="t">'+esc(m.shop)+' <span class="pill">meeting</span></div><div class="s">'+(ME.admin?esc(m.rep_name)+" · ":"")+esc(m.contact||"")+'</div></div><div class="r">'+fmtTime(m.meeting_at)+'</div></li>' }); });
+      gev.filter(function(e){ return !appIds[e.id] && e.start && (e.start.dateTime? sameDay(e.start.dateTime,d) : e.start.date===localInput(d).slice(0,10)); }).forEach(function(e){
+        items.push({ when:e.start.dateTime||e.start.date, html:'<li class="item"><div><div class="t">'+esc(e.summary||"(busy)")+' <span class="pill g">google</span></div><div class="s">'+esc(e.location||"")+'</div></div><div class="r">'+(e.start.dateTime? fmtTime(e.start.dateTime):"all day")+'</div></li>' });
+      });
+      items.sort(function(a,b){ return new Date(a.when)-new Date(b.when); });
+      html += '<div class="day'+(sameDay(d,new Date())?" today":"")+'"><div class="dh">'+d.toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"})+'</div>' + (items.length? '<ul class="list">'+items.map(function(x){return x.html;}).join("")+'</ul>' : '<div class="s" style="color:var(--muted);font-size:14px;padding:4px 0 8px">—</div>') + '</div>';
+    }
+    $("pu-cal").innerHTML = html;
+    Array.prototype.forEach.call($("pu-cal").querySelectorAll(".edit"), function(b){
+      b.onclick = function(){ var id = b.closest(".item").dataset.pid; popupSheet(pops.filter(function(x){return x.id===id;})[0]); };
+    });
+  });
+};
+
+function popupSheet(p, prefill, after){
+  var isNew = !p;
+  after = after || function(){ renderers.popups(); };
+  if(isNew){ var s = new Date(); s.setDate(s.getDate()+1); s.setHours(16,0,0,0); p = Object.assign({ shop:"", address:"", starts_at:s.toISOString(), ends_at:new Date(s.getTime()+3*3600000).toISOString(), notes_before:"", notes_after:"" }, prefill||{}); }
+  var canEdit = isNew || p.rep_email===ME.email || ME.admin;
+  openSheet(
+    '<h2>'+(isNew?"Book a pop-up":esc(p.shop))+'</h2>' +
+    '<div class="field"><label>Shop</label><input type="text" id="f-shop" list="shop-names" value="'+esc(p.shop)+'"'+(canEdit?"":" disabled")+'></div>' +
+    '<div class="field"><label>Address</label><input type="text" id="f-addr" value="'+esc(p.address||"")+'"'+(canEdit?"":" disabled")+'></div>' +
+    '<div class="row"><div class="field"><label>Starts</label><input type="datetime-local" id="f-start" value="'+localInput(p.starts_at)+'"'+(canEdit?"":" disabled")+'></div><div class="field"><label>Ends</label><input type="datetime-local" id="f-end" value="'+localInput(p.ends_at)+'"'+(canEdit?"":" disabled")+'></div></div>' +
+    '<div class="field"><label>Notes going in</label><textarea id="f-before" placeholder="Who to ask for, what to bring, parking…"'+(canEdit?"":" disabled")+'>'+esc(p.notes_before||"")+'</textarea></div>' +
+    (isNew ? '' : '<div class="field"><label>Notes after</label><textarea id="f-after" placeholder="How it went, follow-ups owed…"'+(canEdit?"":" disabled")+'>'+esc(p.notes_after||"")+'</textarea></div>') +
+    '<div id="f-err" class="notice bad hidden"></div>' +
+    (canEdit ? '<div class="actions"><button class="ghost" id="f-cancel">Cancel</button><button class="big" id="f-save">'+(isNew?"Book it":"Save")+'</button></div>' : '<button class="ghost" id="f-cancel" style="width:100%">Close</button>') +
+    (!isNew && canEdit ? '<button class="ghost" id="f-delete" style="width:100%;margin-top:10px;color:var(--warn)">Cancel this pop-up</button>' : ''),
+    function(root){
+      root.querySelector("#f-cancel").onclick = closeSheet;
+      var save = root.querySelector("#f-save");
+      if(save) save.onclick = function(){
+        var row = { shop:root.querySelector("#f-shop").value.trim(), address:root.querySelector("#f-addr").value.trim(),
+          starts_at:new Date(root.querySelector("#f-start").value).toISOString(), ends_at:new Date(root.querySelector("#f-end").value).toISOString(),
+          notes_before:root.querySelector("#f-before").value.trim() };
+        if(!isNew) row.notes_after = root.querySelector("#f-after").value.trim();
+        if(!row.shop) return note(root.querySelector("#f-err"), "Which shop?", "bad");
+        if(new Date(row.ends_at) <= new Date(row.starts_at)) return note(root.querySelector("#f-err"), "End time needs to be after the start.", "bad");
+        save.disabled = true; save.textContent = "Saving…";
+        if(isNew){ row.rep_email = ME.email; row.rep_name = ME.name; }
+        var q = isNew ? sb.from("popups").insert(row).select().single() : sb.from("popups").update(row).eq("id", p.id).select().single();
+        q.then(function(r){
+          if(r.error) throw r.error;
+          var saved = r.data;
+          // Sync to Google, but never block the save on it.
+          var body = gcalEventBody(saved);
+          var sync = saved.gcal_event_id ? gcal("PATCH", "events/"+saved.gcal_event_id, body) : gcal("POST", "events", body).then(function(ev){ return sb.from("popups").update({ gcal_event_id: ev.id }).eq("id", saved.id); });
+          return sync.catch(function(e){ note($("gcal-state"), e.message==="NO_GCAL" ? "Saved, but Google Calendar isn't connected — sign out and back in to sync." : "Saved, but calendar sync failed: "+e.message, "bad"); });
+        }).then(function(){ closeSheet(); after(); })
+          .catch(function(e){ save.disabled=false; save.textContent = isNew?"Book it":"Save"; note(root.querySelector("#f-err"), bail(e), "bad"); });
+      };
+      var del = root.querySelector("#f-delete");
+      if(del) del.onclick = function(){
+        if(!confirm("Cancel the pop-up at "+p.shop+"?")) return;
+        var g = p.gcal_event_id ? gcal("DELETE", "events/"+p.gcal_event_id).catch(function(){}) : Promise.resolve();
+        g.then(function(){ return sb.from("popups").delete().eq("id", p.id); }).then(function(){ closeSheet(); renderers.popups(); });
+      };
+    });
+}
+
+/* ======================================================================
+   WEEK — numbers + recap
+   ====================================================================== */
+var WK_WEEK = startOfWeek(new Date());
+var WK_REP = null;
+var WK_DATA = null;
+$("wk-prev").onclick = function(){ WK_WEEK = addDays(WK_WEEK,-7); renderers.week(); };
+$("wk-next").onclick = function(){ WK_WEEK = addDays(WK_WEEK,7); renderers.week(); };
+
+renderers.week = function(){
+  $("wk-week").textContent = weekLabel(WK_WEEK);
+  hide($("wk-recap-wrap")); hide($("wk-err"));
+  if(ME.admin){
+    $("wk-rep-wrap").style.display = "";
+    if(!$("wk-rep").options.length){
+      $("wk-rep").innerHTML = '<option value="">Whole team</option>' + ROSTER.map(function(r){ return '<option value="'+esc(r.email)+'">'+esc(r.display_name)+'</option>'; }).join("");
+      $("wk-rep").onchange = function(){ WK_REP = $("wk-rep").value || null; renderers.week(); };
+    }
+  }
+  var rep = ME.admin ? WK_REP : ME.email;
+  var ws = WK_WEEK, we = addDays(ws,7);
+  var lim = function(q, col){ q = q.gte(col, ws.toISOString()).lt(col, we.toISOString()); return rep ? q.eq("rep_email", rep) : q; };
+  Promise.all([
+    lim(sb.from("shifts").select("*"), "clock_in"),
+    lim(sb.from("meetings").select("*"), "meeting_at"),
+    lim(sb.from("deals").select("*"), "updated_at"),
+    lim(sb.from("samples").select("*"), "created_at"),
+    (function(){ var q = sb.from("orders").select("*").gte("order_date", isoDate(ws)).lt("order_date", isoDate(we)); return rep? q.eq("rep_email",rep) : q; })(),
+    (function(){ var q = sb.from("popups").select("*").gte("starts_at", we.toISOString()).lt("starts_at", addDays(we,14).toISOString()); return rep? q.eq("rep_email",rep) : q; })()
+  ]).then(function(rs){
+    var shifts = rs[0].data||[], mts = rs[1].data||[], deals = rs[2].data||[], samples = rs[3].data||[], orders = rs[4].data||[], ahead = rs[5].data||[];
+    var rev = orders.reduce(function(a,o){return a+Number(o.subtotal);},0), comm = orders.reduce(function(a,o){return a+Number(o.commission);},0);
+    var hours = shifts.reduce(function(a,s){return a+Number(s.hours);},0);
+    var miles = shifts.reduce(function(a,s){return a+Number(s.miles);},0);
+    var pay = shifts.reduce(function(a,s){return a+Number(s.mileage_pay);},0);
+    var won = deals.filter(function(d){return d.stage==="won"||d.stage==="order_placed";});
+    var wonVal = won.reduce(function(a,d){return a+Number(d.value||0);},0);
+    WK_DATA = {
+      rep: rep ? (ROSTER.filter(function(r){return r.email===rep;})[0]||{}).display_name || rep : "the whole team",
+      weekLabel: weekLabel(ws),
+      stats: { pop_ups_worked: shifts.length, hours_on_site: +hours.toFixed(1), miles: +miles.toFixed(0), mileage_owed: +pay.toFixed(2), meetings: mts.length, samples_dropped: samples.length, deals_touched: deals.length, orders_logged: orders.length, revenue: +rev.toFixed(2), commission_owed: +comm.toFixed(2), pipeline_orders_or_wins: won.length, pipeline_value: wonVal },
+      orders: orders.map(function(o){ return { rep:o.rep_name, shop:o.shop, date:fmtDay(o.order_date), total:o.subtotal, items:(o.items||[]).map(function(i){return i.product+" x"+i.qty;}).join(", "), status:o.status }; }),
+      _raw: { orders:orders, shifts:shifts },
+      samples: samples.map(function(x){ return { rep:x.rep_name, shop:x.shop, strain:x.strain, quantity:Number(x.quantity)+x.unit }; }),
+      shifts: shifts.map(function(s){ return { rep:s.rep_name, shop:s.event, date:fmtDate(s.clock_in), hours:s.hours, notes:s.notes }; }),
+      meetings: mts.map(function(m){ return { rep:m.rep_name, shop:m.shop, contact:m.contact, outcome:m.outcome, next_step:m.next_step }; }),
+      deals: deals.map(function(d){ return { rep:d.rep_name, shop:d.shop, stage:stageLabel(d.stage), value:d.value, notes:d.notes }; }),
+      popups: ahead.map(function(p){ return { rep:p.rep_name, shop:p.shop, date:fmtDate(p.starts_at) }; })
+    };
+    var st = WK_DATA.stats;
+    $("wk-stats").innerHTML = [[st.orders_logged,"orders"],[fmtMoney(st.revenue),"sold"],[st.pop_ups_worked,"pop-ups worked"],[st.hours_on_site.toFixed(1),"hours on site"],[st.meetings,"meetings"],[st.samples_dropped,"samples dropped"],["$"+st.mileage_owed.toFixed(0),"mileage owed"],["$"+st.commission_owed.toFixed(0),"commission"]]
+      .map(function(x){ return '<div class="stat"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>'; }).join("");
+    var lines = [];
+    shifts.forEach(function(s){ lines.push({ when:s.clock_in, t:s.event, s:"Pop-up · "+Number(s.hours).toFixed(1)+" h"+(s.notes? " · "+s.notes:""), who:s.rep_name }); });
+    mts.forEach(function(m){ lines.push({ when:m.meeting_at, t:m.shop, s:"Meeting"+(m.outcome? " · "+m.outcome:""), who:m.rep_name }); });
+    deals.forEach(function(d){ lines.push({ when:d.updated_at, t:d.shop, s:stageLabel(d.stage)+" · "+fmtMoney(d.value), who:d.rep_name }); });
+    samples.forEach(function(x){ lines.push({ when:x.created_at, t:x.shop, s:"Sample · "+x.strain+" "+Number(x.quantity)+x.unit, who:x.rep_name }); });
+    orders.forEach(function(o){ lines.push({ when:o.order_date, t:o.shop, s:"Order · "+fmtMoney(o.subtotal)+" · "+(o.items||[]).map(function(i){return i.product+" ×"+i.qty;}).join(", "), who:o.rep_name }); });
+    lines.sort(function(a,b){ return new Date(a.when)-new Date(b.when); });
+    $("wk-list").innerHTML = lines.length ? lines.map(function(l){ return '<li class="item"><div><div class="t">'+esc(l.t)+'</div><div class="s">'+esc(l.s)+'</div></div><div class="r">'+(rep?"":esc(l.who)+"<br>")+fmtDate(l.when)+'</div></li>'; }).join("") : '<li class="empty">Quiet week — nothing logged.</li>';
+  });
+};
+
+function writeRecap(){
+  if(!WK_DATA) return;
+  var b = $("wk-write"); b.disabled = true; b.textContent = "Writing…"; hide($("wk-err"));
+  var payload = Object.assign({}, WK_DATA); delete payload._raw;
+  fetch("/.netlify/functions/recap", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload) })
+    .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(t); }); return r.json(); })
+    .then(function(d){ $("wk-recap").textContent = d.text; $("wk-recap-wrap").classList.remove("hidden"); })
+    .catch(function(e){ note($("wk-err"), "Couldn't write it: " + bail(e), "bad"); })
+    .then(function(){ b.disabled = false; b.textContent = "Write the recap"; });
+}
+$("wk-write").onclick = writeRecap;
+$("wk-export-orders").onclick = function(){
+  if(!WK_DATA) return;
+  var rows = WK_DATA._raw.orders.map(function(o){ return [o.order_date, o.rep_name, o.shop, o.invoice_no||"", (o.items||[]).map(function(i){return i.product+" x"+i.qty+" @ "+i.price;}).join("; "), Number(o.subtotal).toFixed(2), Number(o.commission_rate), Number(o.commission).toFixed(2), o.status, o.notes||""]; });
+  downloadCSV("orders-"+isoDate(WK_WEEK)+".csv", ["date","rep","shop","invoice","items","subtotal","commission_rate","commission","status","notes"], rows);
+};
+$("wk-export-shifts").onclick = function(){
+  if(!WK_DATA) return;
+  var rows = WK_DATA._raw.shifts.map(function(s){ return [isoDate(s.clock_in), s.rep_name, s.event, fmtTime(s.clock_in), fmtTime(s.clock_out), Number(s.hours).toFixed(2), s.travel_minutes, Number(s.miles).toFixed(1), Number(s.rate).toFixed(2), Number(s.mileage_pay).toFixed(2), s.notes||""]; });
+  downloadCSV("hours-"+isoDate(WK_WEEK)+".csv", ["date","rep","shop","clock_in","clock_out","hours","travel_minutes","miles","rate","mileage_pay","notes"], rows);
+};
+$("wk-rewrite").onclick = writeRecap;
+$("wk-copy").onclick = function(){
+  var t = $("wk-recap").textContent;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("wk-copy").textContent = "Copied"; setTimeout(function(){ $("wk-copy").textContent = "Copy"; }, 1500); }).catch(function(){ window.prompt("Copy this:", t); });
+};
+
+/* ---------- boot ---------- */
+if(CONFIG.SUPABASE_URL.indexOf("YOUR-PROJECT") > -1){
+  note($("auth-err"), "This copy hasn't been configured yet — fill in CONFIG at the top of index.html.", "bad");
+}
+sb.auth.getSession().then(function(r){ if(!r.data.session) showAuth(); });
+
+})();
+</script>
+</body>
+</html>
