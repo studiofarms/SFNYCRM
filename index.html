@@ -267,6 +267,12 @@ td:nth-child(1){max-width:240px;}td:nth-child(2){max-width:180px;}td:nth-child(3
 .report-title{font-size:16px;font-weight:700;}
 .report-subtitle{font-size:12px;color:var(--text3);}
 .report-actions{display:flex;gap:8px;align-items:center;}
+/* Custom export builder */
+.exp-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.exp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.exp-cb{font-size:12.5px;display:flex;gap:7px;align-items:center;color:var(--text2);cursor:pointer;padding:2px 0;}
+.exp-cb input{accent-color:var(--gold);cursor:pointer;}
+.exp-mini{font-size:11px;padding:3px 9px;background:var(--surface3);color:var(--text2);border:1px solid var(--border);border-radius:5px;cursor:pointer;}
 .report-body{flex:1;overflow-y:auto;padding:20px 24px;}
 .report-footer{padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;}
 .report-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
@@ -1349,6 +1355,7 @@ function checkPw(){
         <button class="btn-report" onclick="openReport('monthly')">Monthly</button>
         <button class="btn-report" onclick="openCustomRangePicker()" title="Pick start &amp; end dates">Custom Range…</button>
         <button class="btn-report" onclick="openReport('all')" title="All orders, all time" style="border-color:rgba(200,169,110,0.4);color:var(--gold);">All Orders</button>
+        <button class="btn-report" onclick="openExportBuilder()" title="Pick exactly which columns, metrics, and filters to export" style="border-color:rgba(200,169,110,0.4);color:var(--gold);">⚙️ Custom Export</button>
       </div>
       <button class="btn btn-green" onclick="rt_exportCSV()">💾 Export Backup</button>
       <label class="btn btn-amber" style="display:inline-flex;align-items:center">📂 Restore from Backup<input type="file" accept=".csv" onchange="importCSV(event)" style="display:none"></label>
@@ -4199,6 +4206,70 @@ function revelryCreate(idx){
     </div>
   </div>
 </div>
+<!-- CUSTOM EXPORT BUILDER MODAL -->
+<div class="modal-bg" id="export-bg">
+  <div class="modal" style="max-width:740px;max-height:92vh;overflow-y:auto;">
+    <div class="mhd">
+      <h2>⚙️ Custom Export</h2>
+      <button class="mx" onclick="closeExportBuilder()">&times;</button>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
+      <div>
+        <div class="exp-label">Dataset</div>
+        <select class="ctl" id="exp-dataset" onchange="renderExportFields()">
+          <option value="orders" selected>Orders / Invoices</option>
+          <option value="accounts">Accounts</option>
+        </select>
+      </div>
+      <div>
+        <div class="exp-label">Date Range <span style="text-transform:none;">(orders)</span></div>
+        <select class="ctl" id="exp-range" onchange="document.getElementById('exp-custom-range').style.display=this.value==='custom'?'inline-flex':'none';">
+          <option value="all" selected>All time</option>
+          <option value="tm">This month</option>
+          <option value="lm">Last month</option>
+          <option value="tw">This week</option>
+          <option value="custom">Custom…</option>
+        </select>
+        <span id="exp-custom-range" style="display:none;align-items:center;gap:4px;margin-left:6px;">
+          <input type="date" class="ctl" id="exp-from"> <span style="color:var(--text3);">–</span> <input type="date" class="ctl" id="exp-to">
+        </span>
+      </div>
+      <div>
+        <div class="exp-label">Sales Rep</div>
+        <select class="ctl" id="exp-rep"><option value="">All reps</option></select>
+      </div>
+      <div>
+        <div class="exp-label">Pay Status <span style="text-transform:none;">(orders)</span></div>
+        <div style="display:flex;gap:12px;">
+          <label class="exp-cb"><input type="checkbox" id="exp-ps-paid" checked> Paid</label>
+          <label class="exp-cb"><input type="checkbox" id="exp-ps-pending" checked> Pending</label>
+          <label class="exp-cb"><input type="checkbox" id="exp-ps-overdue" checked> Overdue</label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div class="exp-label" style="margin:0;">Columns</div>
+      <button class="exp-mini" onclick="expToggleAll('exp-fields',true)">Select all</button>
+      <button class="exp-mini" onclick="expToggleAll('exp-fields',false)">None</button>
+    </div>
+    <div id="exp-fields" class="exp-grid" style="margin-bottom:14px;"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div class="exp-label" style="margin:0;">Summary Metrics <span style="text-transform:none;">(appended below the data)</span></div>
+      <button class="exp-mini" onclick="expToggleAll('exp-metrics',true)">All</button>
+      <button class="exp-mini" onclick="expToggleAll('exp-metrics',false)">None</button>
+    </div>
+    <div id="exp-metrics" class="exp-grid" style="margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <select class="ctl" id="exp-format">
+        <option value="csv" selected>CSV (Excel / universal)</option>
+        <option value="tsv">TSV (Google Sheets)</option>
+      </select>
+      <button onclick="runExport('download')" style="padding:9px 18px;background:var(--gold);color:#0c0c0a;font-weight:600;font-size:13px;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ Download</button>
+      <button onclick="runExport('copy')" style="padding:9px 14px;background:var(--surface3);color:var(--text);font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy for Google Sheets</button>
+      <span id="exp-count" style="font-size:12px;color:var(--text3);"></span>
+    </div>
+  </div>
+</div>
 <!-- REPORT MODAL -->
 <div class="modal-bg" id="report-bg">
   <div class="report-modal">
@@ -4210,6 +4281,7 @@ function revelryCreate(idx){
         </div>
         <div class="report-actions">
           <button class="btn-report" onclick="downloadReportCSV()">Download CSV</button>
+          <button class="btn-report" onclick="openExportBuilder()" title="Pick exactly which columns and metrics to export">⚙️ Custom</button>
           <button class="btn-report" onclick="printReport()" style="color:var(--gold);border-color:rgba(200,169,110,0.3);">Print / Save PDF</button>
           <button class="mx" onclick="closeReport()">&times;</button>
         </div>
@@ -9728,6 +9800,289 @@ function downloadReportCSV() {
   var a = document.createElement('a');
   a.href = url;
   a.download = 'studio-farms-'+currentReportPeriod+'-report-'+todayISO()+'.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ── CUSTOM EXPORT BUILDER ────────────────────────────────────────────────────
+// Tick-box export: choose dataset, columns, summary metrics, and filters.
+// Column getters receive (o = order row, a = joined account) or (a = account).
+var EXP_ORDER_COLS = [
+  {k:'id',       l:'Invoice #',        d:true,  g:function(o){return o.id||'';}},
+  {k:'date',     l:'Order Date',       d:true,  g:function(o){return o.date||'';}},
+  {k:'delivery', l:'Delivery Date',    d:false, g:function(o){return o.delivery||'';}},
+  {k:'dispensary',l:'Dispensary',      d:true,  g:function(o){return o.dispensary||'';}},
+  {k:'contact',  l:'Contact Name',     d:false, g:function(o,a){return (a&&a.contact)||'';}},
+  {k:'email',    l:'Email',            d:false, g:function(o,a){return o.email||(a&&a.email)||'';}},
+  {k:'phone',    l:'Phone',            d:false, g:function(o,a){return o.phone||(a&&a.phone)||'';}},
+  {k:'address',  l:'Address',          d:false, g:function(o){return o.addr||'';}},
+  {k:'license',  l:'License #',        d:false, g:function(o){return o.license||'';}},
+  {k:'oz',       l:'Qty (oz)',         d:true,  g:function(o){return o.oz||0;}},
+  {k:'cases',    l:'2g Cases',         d:false, g:function(o){return (typeof rptCount2gCases==='function')?rptCount2gCases(o.notes):'';}},
+  {k:'price',    l:'Price / oz',       d:false, g:function(o){return o.price||'';}},
+  {k:'discount', l:'Discount %',       d:false, g:function(o){return o.discount||0;}},
+  {k:'total',    l:'Total (pre-tax)',  d:true,  g:function(o){return parseFloat(o.total)||0;}},
+  {k:'paystatus',l:'Pay Status',       d:true,  g:function(o){return _expStatus(o);}},
+  {k:'paid_at',  l:'Paid On',          d:false, g:function(o){return o.paid_at||'';}},
+  {k:'paymethod',l:'Pay Method',       d:false, g:function(o){return o.paymethod||'';}},
+  {k:'terms',    l:'Terms',            d:false, g:function(o){return o.terms||'';}},
+  {k:'paydue',   l:'Due Date',         d:true,  g:function(o){return o.paydue||'';}},
+  {k:'balance',  l:'Balance Owed',     d:true,  g:function(o){return String(o.paystatus)==='Paid'?0:(parseFloat(o.total)||0);}},
+  {k:'salesrep', l:'Sales Rep',        d:true,  g:function(o){return o.salesrep||'';}},
+  {k:'link',     l:'Invoice Link',     d:false, g:function(o){return o.link||'';}},
+  {k:'notes',    l:'Notes (Metrc/SO)', d:false, g:function(o){return o.notes||'';}}
+];
+var EXP_ACCT_COLS = [
+  {k:'name',     l:'Name',             d:true,  g:function(a){return a.name||'';}},
+  {k:'location', l:'Location',         d:true,  g:function(a){return a.location||'';}},
+  {k:'address',  l:'Address',          d:true,  g:function(a){return a.address||'';}},
+  {k:'stage',    l:'Stage',            d:true,  g:function(a){return a.stage||'';}},
+  {k:'sales_rep',l:'Sales Rep',        d:true,  g:function(a){return a.sales_rep||'';}},
+  {k:'contact',  l:'Contact Name',     d:true,  g:function(a){return a.contact||'';}},
+  {k:'email',    l:'Email',            d:true,  g:function(a){return a.email||'';}},
+  {k:'phone',    l:'Phone',            d:true,  g:function(a){return a.phone||'';}},
+  {k:'website',  l:'Website',          d:false, g:function(a){return a.website||'';}},
+  {k:'contact_url',l:'Contact Page',   d:false, g:function(a){return (a.details&&a.details.contact_url)||'';}},
+  {k:'license',  l:'License #',        d:false, g:function(a){return (a.details&&a.details.license)||'';}},
+  {k:'tags',     l:'Tags',             d:false, g:function(a){return (a.tags||[]).join('; ');}},
+  {k:'last_order',l:'Last Order Date', d:false, g:function(a){return _expAcctStats(a).lastOrder;}},
+  {k:'order_ct', l:'# Orders',         d:false, g:function(a){return _expAcctStats(a).count;}},
+  {k:'lifetime', l:'Lifetime Revenue', d:false, g:function(a){return _expAcctStats(a).lifetime;}},
+  {k:'open_bal', l:'Open Balance',     d:false, g:function(a){return _expAcctStats(a).owed;}},
+  {k:'last_outreach',l:'Last Outreach',d:false, g:function(a){var lo=(typeof _lastOutreach==='function')?_lastOutreach(a):null;return (lo&&lo.date)||'';}}
+];
+var EXP_ORDER_METRICS = [
+  {k:'gross',   l:'Gross total',        d:true},
+  {k:'collected',l:'Collected (paid)',  d:true},
+  {k:'outstanding',l:'Outstanding',     d:true},
+  {k:'overdue', l:'Overdue',            d:false},
+  {k:'oz',      l:'Total oz',           d:true},
+  {k:'cases',   l:'Total 2g cases',     d:false},
+  {k:'count',   l:'Order count',        d:true},
+  {k:'avg',     l:'Avg order value',    d:false},
+  {k:'reps',    l:'Per-rep subtotals',  d:false},
+  {k:'months',  l:'Per-month subtotals',d:false}
+];
+var EXP_ACCT_METRICS = [
+  {k:'count',   l:'Account count',      d:true},
+  {k:'stages',  l:'Counts by stage',    d:false},
+  {k:'reps',    l:'Counts by rep',      d:false},
+  {k:'lifetime',l:'Total lifetime revenue',d:false},
+  {k:'open',    l:'Total open balance', d:false}
+];
+
+// Effective status: unpaid past its due date reads as Overdue
+function _expStatus(o){
+  var ps = String(o.paystatus||'');
+  if(ps === 'Paid') return 'Paid';
+  var today = new Date().toISOString().slice(0,10);
+  if(o.paydue && o.paydue < today) return 'Overdue';
+  return ps || 'Pending';
+}
+var _expStatsCache = null;
+function _expAcctStats(a){
+  if(!_expStatsCache) _expStatsCache = {};
+  if(_expStatsCache[a.id]) return _expStatsCache[a.id];
+  var nm = _routeNorm(a.name), dba = _routeNorm(a.dba);
+  var s = {lastOrder:'', count:0, lifetime:0, owed:0};
+  if(window.rt_orders){
+    for(var i=0;i<rt_orders.length;i++){
+      var o = rt_orders[i]; if(!o||!o.dispensary) continue;
+      var d = _routeNorm(o.dispensary);
+      if(d!==nm && !(dba && d===dba)) continue;
+      s.count++;
+      s.lifetime += parseFloat(o.total)||0;
+      if(String(o.paystatus)!=='Paid') s.owed += parseFloat(o.total)||0;
+      if(o.date && o.date > s.lastOrder) s.lastOrder = o.date;
+    }
+  }
+  s.lifetime = Math.round(s.lifetime*100)/100;
+  s.owed = Math.round(s.owed*100)/100;
+  _expStatsCache[a.id] = s;
+  return s;
+}
+
+function openExportBuilder(){
+  var repSel = document.getElementById('exp-rep');
+  if(repSel){
+    var reps = {};
+    if(window.rt_orders) rt_orders.forEach(function(o){ if(o&&o.salesrep) reps[o.salesrep]=1; });
+    accounts.forEach(function(a){ if(a.sales_rep) reps[a.sales_rep]=1; });
+    var cur = repSel.value;
+    repSel.innerHTML = "<option value=''>All reps</option>" + Object.keys(reps).sort().map(function(r){ return "<option>"+r+"</option>"; }).join('');
+    repSel.value = cur||'';
+  }
+  renderExportFields();
+  document.getElementById('export-bg').classList.add('open');
+}
+function closeExportBuilder(){ document.getElementById('export-bg').classList.remove('open'); }
+
+function _expPrefs(){ try{ return JSON.parse(localStorage.getItem('sfcrm_export_prefs')||'{}')||{}; }catch(e){ return {}; } }
+function renderExportFields(){
+  var ds = (document.getElementById('exp-dataset')||{}).value||'orders';
+  var cols = ds==='orders' ? EXP_ORDER_COLS : EXP_ACCT_COLS;
+  var mets = ds==='orders' ? EXP_ORDER_METRICS : EXP_ACCT_METRICS;
+  var prefs = _expPrefs()[ds] || {};
+  function grid(el, items, savedKeys){
+    el.innerHTML = items.map(function(c){
+      var on = savedKeys ? savedKeys.indexOf(c.k)!==-1 : c.d;
+      return "<label class='exp-cb'><input type='checkbox' data-k='"+c.k+"'"+(on?' checked':'')+"> "+c.l+"</label>";
+    }).join('');
+  }
+  grid(document.getElementById('exp-fields'), cols, prefs.cols||null);
+  grid(document.getElementById('exp-metrics'), mets, prefs.mets||null);
+  var cnt = document.getElementById('exp-count');
+  if(cnt) cnt.textContent = '';
+}
+function expToggleAll(gridId, on){
+  document.querySelectorAll('#'+gridId+' input[type=checkbox]').forEach(function(cb){ cb.checked = on; });
+}
+function _expChecked(gridId){
+  var out = [];
+  document.querySelectorAll('#'+gridId+' input[type=checkbox]').forEach(function(cb){ if(cb.checked) out.push(cb.getAttribute('data-k')); });
+  return out;
+}
+function _expDateRange(){
+  var r = (document.getElementById('exp-range')||{}).value||'all';
+  var now = new Date(), from='', to='';
+  function iso(d){ return d.toISOString().slice(0,10); }
+  if(r==='tm'){ from = iso(new Date(now.getFullYear(),now.getMonth(),1)); to = iso(now); }
+  else if(r==='lm'){ from = iso(new Date(now.getFullYear(),now.getMonth()-1,1)); to = iso(new Date(now.getFullYear(),now.getMonth(),0)); }
+  else if(r==='tw'){ var d=new Date(now); d.setDate(d.getDate()-((d.getDay()+6)%7)); from=iso(d); to=iso(now); }
+  else if(r==='custom'){ from=(document.getElementById('exp-from')||{}).value||''; to=(document.getElementById('exp-to')||{}).value||''; }
+  return {from:from, to:to};
+}
+
+function runExport(mode){
+  _expStatsCache = null;
+  var ds = (document.getElementById('exp-dataset')||{}).value||'orders';
+  var allCols = ds==='orders' ? EXP_ORDER_COLS : EXP_ACCT_COLS;
+  var colKeys = _expChecked('exp-fields');
+  var metKeys = _expChecked('exp-metrics');
+  if(!colKeys.length){ alert('Tick at least one column.'); return; }
+  var cols = allCols.filter(function(c){ return colKeys.indexOf(c.k)!==-1; });
+  var rep = (document.getElementById('exp-rep')||{}).value||'';
+  // Persist selections per dataset
+  try{
+    var P = _expPrefs(); P[ds] = {cols:colKeys, mets:metKeys};
+    localStorage.setItem('sfcrm_export_prefs', JSON.stringify(P));
+  }catch(e){}
+
+  var matrix = [cols.map(function(c){ return c.l; })];
+  var dataRows = [];
+
+  if(ds==='orders'){
+    var range = _expDateRange();
+    var psOK = {
+      'Paid': (document.getElementById('exp-ps-paid')||{}).checked,
+      'Pending': (document.getElementById('exp-ps-pending')||{}).checked,
+      'Overdue': (document.getElementById('exp-ps-overdue')||{}).checked
+    };
+    var acctByNorm = {};
+    accounts.forEach(function(a){ acctByNorm[_routeNorm(a.name)] = a; });
+    (window.rt_orders||[]).forEach(function(o){
+      if(!o) return;
+      if(range.from && (!o.date || o.date < range.from)) return;
+      if(range.to && o.date && o.date > range.to) return;
+      if(rep && String(o.salesrep||'') !== rep) return;
+      var st = _expStatus(o);
+      if(psOK[st] === false) return;
+      dataRows.push({o:o, a:acctByNorm[_routeNorm(o.dispensary)]||null});
+    });
+    dataRows.sort(function(x,y){ return String(x.o.date||'').localeCompare(String(y.o.date||'')); });
+    dataRows.forEach(function(r){ matrix.push(cols.map(function(c){ return c.g(r.o, r.a); })); });
+    if(metKeys.length){
+      var M = {gross:0,collected:0,outstanding:0,overdue:0,oz:0,cases:0,count:0};
+      var byRep = {}, byMonth = {};
+      dataRows.forEach(function(r){
+        var o=r.o, tot=parseFloat(o.total)||0, st=_expStatus(o);
+        M.gross+=tot; M.count++;
+        if(st==='Paid') M.collected+=tot; else { M.outstanding+=tot; if(st==='Overdue') M.overdue+=tot; }
+        M.oz+=parseFloat(o.oz)||0;
+        if(typeof rptCount2gCases==='function') M.cases+=rptCount2gCases(o.notes)||0;
+        var rp=o.salesrep||'(none)'; byRep[rp]=(byRep[rp]||0)+tot;
+        var mo=String(o.date||'').slice(0,7)||'(no date)'; byMonth[mo]=(byMonth[mo]||0)+tot;
+      });
+      matrix.push([]);
+      function met(l,v){ var row=[l,v]; matrix.push(row); }
+      if(metKeys.indexOf('gross')!==-1)      met('Gross total', Math.round(M.gross*100)/100);
+      if(metKeys.indexOf('collected')!==-1)  met('Collected (paid)', Math.round(M.collected*100)/100);
+      if(metKeys.indexOf('outstanding')!==-1)met('Outstanding', Math.round(M.outstanding*100)/100);
+      if(metKeys.indexOf('overdue')!==-1)    met('Overdue', Math.round(M.overdue*100)/100);
+      if(metKeys.indexOf('oz')!==-1)         met('Total oz', Math.round(M.oz*100)/100);
+      if(metKeys.indexOf('cases')!==-1)      met('Total 2g cases', M.cases);
+      if(metKeys.indexOf('count')!==-1)      met('Order count', M.count);
+      if(metKeys.indexOf('avg')!==-1)        met('Avg order value', M.count?Math.round(M.gross/M.count*100)/100:0);
+      if(metKeys.indexOf('reps')!==-1){
+        matrix.push([]); matrix.push(['— By rep —']);
+        Object.keys(byRep).sort().forEach(function(k){ met(k, Math.round(byRep[k]*100)/100); });
+      }
+      if(metKeys.indexOf('months')!==-1){
+        matrix.push([]); matrix.push(['— By month —']);
+        Object.keys(byMonth).sort().forEach(function(k){ met(k, Math.round(byMonth[k]*100)/100); });
+      }
+    }
+  } else {
+    var list = accounts.filter(function(a){
+      if(a.stage==='Merged') return false;
+      if(a.tags && a.tags.indexOf('merged-duplicate')!==-1) return false;
+      if(rep && String(a.sales_rep||'') !== rep) return false;
+      return true;
+    });
+    list.sort(function(x,y){ return String(x.name||'').localeCompare(String(y.name||'')); });
+    list.forEach(function(a){ matrix.push(cols.map(function(c){ return c.g(a); })); });
+    if(metKeys.length){
+      matrix.push([]);
+      if(metKeys.indexOf('count')!==-1) matrix.push(['Account count', list.length]);
+      if(metKeys.indexOf('stages')!==-1){
+        var byStage={}; list.forEach(function(a){ var s=a.stage||'(none)'; byStage[s]=(byStage[s]||0)+1; });
+        matrix.push([]); matrix.push(['— By stage —']);
+        Object.keys(byStage).sort().forEach(function(k){ matrix.push([k, byStage[k]]); });
+      }
+      if(metKeys.indexOf('reps')!==-1){
+        var byRep2={}; list.forEach(function(a){ var s=a.sales_rep||'(none)'; byRep2[s]=(byRep2[s]||0)+1; });
+        matrix.push([]); matrix.push(['— By rep —']);
+        Object.keys(byRep2).sort().forEach(function(k){ matrix.push([k, byRep2[k]]); });
+      }
+      if(metKeys.indexOf('lifetime')!==-1){
+        var lt=0; list.forEach(function(a){ lt+=_expAcctStats(a).lifetime; });
+        matrix.push(['Total lifetime revenue', Math.round(lt*100)/100]);
+      }
+      if(metKeys.indexOf('open')!==-1){
+        var ob=0; list.forEach(function(a){ ob+=_expAcctStats(a).owed; });
+        matrix.push(['Total open balance', Math.round(ob*100)/100]);
+      }
+    }
+    var dataCount = list.length;
+  }
+
+  var fmt = (document.getElementById('exp-format')||{}).value||'csv';
+  var delim = (fmt==='tsv'||mode==='copy') ? '\t' : ',';
+  var text = matrix.map(function(row){
+    return row.map(function(v){
+      var s = String(v==null?'':v);
+      if(delim==='\t') return s.replace(/[\t\r\n]+/g,' ');
+      return '"'+s.replace(/"/g,'""')+'"';
+    }).join(delim);
+  }).join('\n');
+
+  var nRows = matrix[0] ? (ds==='orders' ? dataRows.length : (typeof dataCount!=='undefined'?dataCount:matrix.length-1)) : 0;
+  var cnt = document.getElementById('exp-count');
+  if(cnt) cnt.textContent = nRows + ' rows · ' + cols.length + ' columns';
+
+  if(mode==='copy'){
+    function ok(){ alert('Copied '+nRows+' rows — paste straight into Google Sheets.'); }
+    function fail(){ prompt('Copy the export:', text.slice(0,2000)); }
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fail);
+    else fail();
+    return;
+  }
+  var ext = delim==='\t' ? 'tsv' : 'csv';
+  var blob = new Blob([text], {type: delim==='\t' ? 'text/tab-separated-values' : 'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'studio-farms-'+ds+'-export-'+todayISO()+'.'+ext;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
