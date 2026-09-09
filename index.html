@@ -980,7 +980,23 @@ function checkPw(){
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Start Location</div>
         <input id="route-start" class="search-input" style="width:100%;margin-bottom:8px;" placeholder="e.g. 259 Bowery, New York, NY" value="New York, NY" onchange="routeStartChanged()"/>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:8px;">Add Any Dispensary</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:8px 0;">🧠 Smart Plan</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <select class="ctl" id="route-hours" style="flex:1;" title="How long is your day on the road?">
+            <option value="4">4-hour day</option>
+            <option value="6">6-hour day</option>
+            <option value="8" selected>8-hour day</option>
+            <option value="10">10-hour day</option>
+          </select>
+          <select class="ctl" id="route-focus" style="flex:1;" title="What should the route prioritize?">
+            <option value="balanced" selected>Balanced</option>
+            <option value="collections">💰 Collections</option>
+            <option value="reorders">🔄 Reorders</option>
+            <option value="newbiz">🌱 New business</option>
+          </select>
+        </div>
+        <button onclick="buildSmartRoute()" title="Auto-picks the highest-value stops that fit your day: money to collect, reorders due, neglected accounts — clustered around your start. Respects the Region filter below." style="width:100%;padding:9px;background:linear-gradient(135deg,#c8a96e,#a8894e);color:#0c0c0a;font-weight:700;font-size:13px;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px;">🧠 Build Smart Route</button>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Add Any Dispensary</div>
         <div style="position:relative;margin-bottom:8px;">
           <input type="text" id="route-add-search" class="search-input" style="width:100%;" placeholder="🔍 Search all dispensaries…" oninput="routeSearchInput()" onfocus="routeSearchInput()" autocomplete="off"/>
           <div id="route-add-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1200;background:#161613;border:1px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
@@ -10099,6 +10115,101 @@ function _stopLL(a){
   return null;
 }
 
+// ── Smart route intelligence ────────────────────────────────────────────────
+// Scores an account on why it's worth a visit today: money to collect,
+// reorder due, sampled-but-never-ordered, neglected contact, bookmarks.
+function _routeNorm(s){ return String(s||'').replace(/^\*/,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function _routeIntel(a, focus){
+  focus = focus || 'balanced';
+  var res = {score:0, reasons:[], owed:0, overdue:0, daysSinceOrder:null};
+  var nm = _routeNorm(a.name), dba = _routeNorm(a.dba);
+  var today = new Date().toISOString().slice(0,10);
+  var lastOrder = '';
+  if(window.rt_orders){
+    for(var i=0;i<rt_orders.length;i++){
+      var o = rt_orders[i]; if(!o || !o.dispensary) continue;
+      var d = _routeNorm(o.dispensary);
+      if(d !== nm && !(dba && d === dba)) continue;
+      var tot = parseFloat(o.total)||0;
+      if(String(o.paystatus||'') !== 'Paid' && tot > 0){
+        res.owed += tot;
+        if(o.paydue && o.paydue < today) res.overdue += tot;
+      }
+      if(o.date && o.date > lastOrder) lastOrder = o.date;
+    }
+  }
+  var mC = (focus==='collections')?3:1, mR = (focus==='reorders')?3:1, mN = (focus==='newbiz')?3:1;
+  if(res.overdue > 0){
+    res.score += (30 + Math.min(res.overdue/200, 30)) * mC;
+    res.reasons.push('💰 $'+Math.round(res.overdue).toLocaleString()+' overdue');
+  } else if(res.owed > 0){
+    res.score += (12 + Math.min(res.owed/400, 15)) * mC;
+    res.reasons.push('💵 $'+Math.round(res.owed).toLocaleString()+' open');
+  }
+  if(lastOrder){
+    var days = Math.floor((Date.now() - new Date(lastOrder+'T12:00:00').getTime())/86400000);
+    res.daysSinceOrder = days;
+    if(days >= 21 && (a.stage==='Repeat' || a.stage==='First Order')){
+      res.score += (18 + Math.min(days-21, 40)) * mR;
+      res.reasons.push('🔄 '+days+'d since last order');
+    }
+  }
+  if(a.stage==='Sampled'){ res.score += 16*mN; res.reasons.push('🌱 sampled — close it'); }
+  if(a.stage==='Prospecting'){ res.score += 6*mN; }
+  var lo = (typeof _lastOutreach==='function') ? _lastOutreach(a) : null;
+  if(lo && lo.date){
+    var od = Math.floor((Date.now() - new Date(String(lo.date).slice(0,10)+'T12:00:00').getTime())/86400000);
+    if(od >= 30){ res.score += Math.min(od,90)/6; res.reasons.push('📞 no contact '+od+'d'); }
+  } else if(a.stage !== 'Prospecting'){
+    res.score += 8; res.reasons.push('📞 no outreach logged');
+  }
+  if(typeof _isBookmarked==='function' && _isBookmarked(a)){ res.score += 12; res.reasons.push('⭐ bookmarked'); }
+  return res;
+}
+
+// Auto-builds the highest-value day that fits the time budget: greedy pick by
+// score-per-minute (drive + ~15 min per visit) from the start point, then 2-opt.
+function buildSmartRoute(){
+  var hours = parseFloat(((document.getElementById('route-hours')||{}).value)||'8')||8;
+  var focus = ((document.getElementById('route-focus')||{}).value)||'balanced';
+  var region = ((document.getElementById('route-region')||{}).value)||'';
+  var budget = hours*60;
+  var startLL = window._routeStartLL || [40.7128,-74.0060];
+  var cands = [];
+  accounts.forEach(function(a){
+    if(!a.address || !a.address.trim()) return;
+    if(a.stage==='Merged') return;
+    if(a.tags && a.tags.indexOf('merged-duplicate')!==-1) return;
+    if(region && !(a.tags && a.tags.indexOf(region)!==-1)) return;
+    var ll = _stopLL(a); if(!ll) return;
+    var intel = _routeIntel(a, focus);
+    if(intel.score <= 0) return;
+    cands.push({a:a, ll:ll, intel:intel});
+  });
+  if(!cands.length){ alert('No candidates scored'+(region?' in that region':'')+'. Try clearing the Region filter.'); return; }
+  var cur = startLL, remaining = budget, picked = [];
+  while(picked.length < 25){
+    var best=null, bestVal=0, bestCost=0;
+    for(var i=0;i<cands.length;i++){
+      var c=cands[i]; if(c._used) continue;
+      var driveMin = _routeHaversine(cur[0],cur[1],c.ll[0],c.ll[1]) * 1.3 / 30 * 60;
+      var cost = driveMin + 15;
+      if(cost > remaining) continue;
+      var val = c.intel.score / cost;
+      if(val > bestVal){ bestVal=val; best=c; bestCost=cost; }
+    }
+    if(!best) break;
+    best._used = true;
+    picked.push(best);
+    remaining -= bestCost;
+    cur = best.ll;
+  }
+  if(!picked.length){ alert('Nothing fits a '+hours+'-hour day from that start point — check the start address.'); return; }
+  window.routeStops = picked.map(function(p){ return p.a.id; });
+  window._routeLastFilter = 'smart|' + Date.now();
+  optimizeRoute();  // 2-opt polish; renders list, summary, and map
+}
+
 // ── Live route map ──────────────────────────────────────────────────────────
 window._routeMap = null; window._routeLayer = null; window._routeStartLL = null;
 function renderRouteMap(){
@@ -10122,8 +10233,10 @@ function renderRouteMap(){
     var a = _acctById(aid); if(!a) return;
     var ll = _stopLL(a); if(!ll) return;
     var mk = L.marker(ll,{icon:L.divIcon({className:'',html:"<div class='route-pin'>"+(i+1)+"</div>",iconSize:[26,26],iconAnchor:[13,13]})});
+    var itl = _routeIntel(a);
     mk.bindPopup("<div style='font-family:sans-serif;min-width:180px;'><b>"+(i+1)+". "+(a.name||'')+"</b>"
       + "<div style='font-size:11px;color:#888;margin:3px 0;'>"+(a.address||a.location||'')+"</div>"
+      + (itl.reasons.length ? "<div style='font-size:10px;color:#c8a96e;margin-bottom:4px;'>"+itl.reasons.join(' · ')+"</div>" : "")
       + (a.phone ? "<div style='font-size:11px;margin-bottom:3px;'><a href='tel:"+a.phone+"' style='color:#c8a96e;'>&#128222; "+a.phone+"</a></div>" : "")
       + "<button onclick='removeRouteStopById("+aid+")' style='font-size:11px;padding:3px 8px;margin-right:4px;background:#b0483f;color:#fff;border:none;border-radius:4px;cursor:pointer;'>&times; Remove</button>"
       + "<button onclick='logOutreach("+aid+")' style='font-size:11px;padding:3px 8px;background:#3b3f52;color:#e5e7eb;border:none;border-radius:4px;cursor:pointer;'>&#128221; Outreach</button></div>");
@@ -10174,8 +10287,9 @@ function routeSearchInput(){
   }
   box.innerHTML = hits.map(function(a){
     var inR = window.routeStops.indexOf(a.id)!==-1;
+    var it = _routeIntel(a);
     return "<div onclick='routeAddFromSearch("+a.id+")' style='padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);"+(inR?'opacity:.5;':'')+"' onmouseover=\"this.style.background='#22221e'\" onmouseout=\"this.style.background=''\">"
-      + "<div style='font-size:12px;font-weight:600;'>"+(inR?'&#10003; ':'')+(a.name||'').replace(/</g,'&lt;')+"</div>"
+      + "<div style='font-size:12px;font-weight:600;'>"+(inR?'&#10003; ':'')+(a.name||'').replace(/</g,'&lt;')+(it.owed>0?" <span style='color:var(--gold);font-weight:600;'>· 💰$"+Math.round(it.owed).toLocaleString()+"</span>":'')+"</div>"
       + "<div style='font-size:10px;color:var(--text3);'>"+((a.address||a.location||'').replace(/</g,'&lt;'))+" &middot; "+(a.stage||'')+"</div></div>";
   }).join('');
   box.style.display='block';
@@ -10314,6 +10428,7 @@ function renderRouteStops(){
       + '<div class="stop-info">'
       +   '<div class="stop-name">'+(a.name||'Unnamed')+'</div>'
       +   '<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+addr+'</div>'
+      +   (function(){ var it=_routeIntel(a); return it.reasons.length ? '<div style="font-size:10px;color:var(--gold);margin-top:2px;">'+it.reasons.join(' · ')+'</div>' : ''; })()
       + '</div>'
       + '<span style="font-size:10px;background:var(--surface3);color:'+stageColor+';border-radius:99px;padding:2px 8px;white-space:nowrap;">'+(a.stage||'')+'</span>'
       + (a.phone ? '<a href="tel:'+a.phone+'" title="Call" style="color:var(--gold);text-decoration:none;font-size:13px;padding:2px 4px;">&#128222;</a>' : '')
@@ -10349,10 +10464,19 @@ function renderRouteSummary(){
   var totMin = driveMin + visitMin;
   var timeStr = totMin >= 60 ? Math.floor(totMin/60)+'h '+(totMin%60)+'m' : totMin+'m';
   var note = (located === window.routeStops.length) ? '' : ' <span style="color:var(--text3);font-size:11px;">('+located+'/'+window.routeStops.length+' stops located)</span>';
+  // Money riding on this route
+  var owedTot = 0, overdueTot = 0;
+  for(var m=0; m<window.routeStops.length; m++){
+    var am = _acctById(window.routeStops[m]);
+    if(!am) continue;
+    var it = _routeIntel(am);
+    owedTot += it.owed; overdueTot += it.overdue;
+  }
   sumEl.innerHTML =
       '<div><strong>'+window.routeStops.length+'</strong> stops</div>'
     + (totalMi > 0 ? '<div><strong>~'+roadMi.toFixed(0)+' mi</strong> est. driving ('+totalMi.toFixed(1)+' mi straight-line)'+note+'</div>' : '')
     + (totalMi > 0 ? '<div><strong>~'+timeStr+'</strong> est. day (drive + ~15 min/stop)</div>' : '')
+    + (owedTot > 0 ? '<div style="color:var(--gold);"><strong>💰 $'+Math.round(owedTot).toLocaleString()+'</strong> collectible on this route'+(overdueTot>0?' <span style="color:#d46f6f;">($'+Math.round(overdueTot).toLocaleString()+' overdue)</span>':'')+'</div>' : '')
     + '<div style="color:var(--text3);font-size:11px;margin-top:4px;">Estimates only — open in Google Maps for live traffic.</div>';
 }
 
@@ -10488,6 +10612,7 @@ function printRoute(){
       +   '<div style="font-size:11px;color:#555;">'+(a.address||a.location||'')+'</div>'
       +   (contact ? '<div style="font-size:11px;color:#555;margin-top:3px;">Contact: '+contact+'</div>' : '')
       +   (ph ? '<div style="font-size:11px;color:#555;">'+ph+'</div>' : '')
+      +   (function(){ var why=_routeIntel(a).reasons.join(' · '); return why ? '<div style="font-size:10px;color:#8a6d2f;margin-top:3px;font-weight:600;">'+why+'</div>' : ''; })()
       +   (notes ? '<div style="font-size:10px;color:#777;margin-top:3px;font-style:italic;">'+notes+'</div>' : '')
       + '</td>'
       + '<td style="padding:8px 6px;font-size:11px;color:#555;vertical-align:top;">'+(a.stage||'')+'</td>'
