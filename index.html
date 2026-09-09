@@ -377,6 +377,9 @@ td:nth-child(1){max-width:240px;}td:nth-child(2){max-width:180px;}td:nth-child(3
 /* MAP POPUP */
 /* Dark-mode basemap: invert OSM's light tiles (tiles only, not markers/popups) */
 .map-tiles-dark{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.4);}
+/* Numbered route pins on the route planner map */
+.route-pin{width:26px;height:26px;border-radius:50%;background:#c8a96e;color:#0c0c0a;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;border:2px solid #0c0c0a;box-shadow:0 1px 4px rgba(0,0,0,.5);font-family:'DM Sans',sans-serif;}
+.route-pin-start{background:#6db87a;}
 .dp-popup .leaflet-popup-content-wrapper{background:#1c1c19!important;color:#f2ede6!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;}
 .dp-popup .leaflet-popup-tip{background:#1c1c19!important;}
 .dp-popup .leaflet-popup-content{margin:12px 14px!important;font-family:'DM Sans',sans-serif;}
@@ -976,8 +979,18 @@ function checkPw(){
       <div style="font-weight:600;font-size:15px;margin-bottom:12px;">🚗 Route Planner</div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Start Location</div>
-        <input id="route-start" class="search-input" style="width:100%;margin-bottom:8px;" placeholder="e.g. 259 Bowery, New York, NY" value="New York, NY"/>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:8px;">Filter Stops</div>
+        <input id="route-start" class="search-input" style="width:100%;margin-bottom:8px;" placeholder="e.g. 259 Bowery, New York, NY" value="New York, NY" onchange="routeStartChanged()"/>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:8px;">Add Any Dispensary</div>
+        <div style="position:relative;margin-bottom:8px;">
+          <input type="text" id="route-add-search" class="search-input" style="width:100%;" placeholder="🔍 Search all dispensaries…" oninput="routeSearchInput()" onfocus="routeSearchInput()" autocomplete="off"/>
+          <div id="route-add-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1200;background:#161613;border:1px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button onclick="optimizeRoute()" title="Reorder stops into the shortest path" style="flex:1;padding:7px 4px;background:var(--surface3);color:var(--gold);font-weight:600;font-size:12px;border:1px solid rgba(200,169,110,.35);border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;">⚡ Optimize</button>
+          <button onclick="reverseRoute()" title="Reverse stop order" style="flex:1;padding:7px 4px;background:var(--surface3);color:var(--text);font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;">⇅ Reverse</button>
+          <button onclick="clearRoute()" title="Remove all stops" style="flex:1;padding:7px 4px;background:var(--surface3);color:#d46f6f;font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Clear</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Or Fill From Filters</div>
         <select class="ctl" id="route-region" onchange="buildRouteList()" style="width:100%;margin-bottom:6px;">
           <option value="">All Regions</option>
           <option value="brooklyn">Brooklyn</option>
@@ -1003,14 +1016,18 @@ function checkPw(){
           <option value="First Order">First Order</option>
           <option value="Repeat">Repeat</option>
         </select>
-        <select class="ctl" id="route-max" style="width:100%;margin-bottom:10px;">
+        <select class="ctl" id="route-max" style="width:100%;margin-bottom:8px;">
           <option value="10">Max 10 stops</option>
           <option value="15">Max 15 stops</option>
           <option value="20" selected>Max 20 stops</option>
           <option value="25">Max 25 stops</option>
         </select>
+        <button onclick="window._routeLastFilter='';buildRouteList();" style="width:100%;padding:8px;background:var(--surface3);color:var(--text);font-weight:600;font-size:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:12px;">⊕ Fill Stops From Filters</button>
         <button onclick="openRouteInGoogleMaps()" style="width:100%;padding:9px;background:var(--gold);color:#0c0c0a;font-weight:600;font-size:13px;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;">
           🗺️ Open Route in Google Maps
+        </button>
+        <button onclick="copyRouteLink()" style="width:100%;padding:9px;background:var(--surface3);color:var(--text);font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:6px;">
+          🔗 Copy Route Link (text it to a rep)
         </button>
         <button onclick="openRouteInWaze()" style="width:100%;padding:9px;background:var(--surface3);color:var(--text);font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:6px;">
           📡 Open in Waze
@@ -1019,16 +1036,25 @@ function checkPw(){
           🖨️ Print Visit Sheet
         </button>
       </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Saved Routes</div>
+        <select class="ctl" id="route-saved" onchange="loadSavedRoute()" style="width:100%;margin-bottom:6px;"><option value="">Saved routes…</option></select>
+        <div style="display:flex;gap:6px;">
+          <button onclick="saveCurrentRoute()" style="flex:1;padding:7px 4px;background:var(--surface3);color:var(--text);font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;">💾 Save Current</button>
+          <button onclick="deleteSavedRoute()" style="flex:1;padding:7px 4px;background:var(--surface3);color:#d46f6f;font-weight:500;font-size:12px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Delete</button>
+        </div>
+      </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Route Summary</div>
         <div id="route-summary" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
+        <div id="route-gmaps-parts" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
       </div>
     </div>
-    <!-- Right: stop list -->
-    <div style="flex:2;min-width:300px;">
+    <!-- Right: live route map + stop list -->
+    <div style="flex:2;min-width:320px;">
+      <div id="route-map" style="height:340px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:#161613;"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:12px;color:var(--text2);">Drag to reorder · Click ✕ to remove</div>
-        <button onclick="buildRouteList()" style="font-size:11px;padding:5px 10px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:6px;cursor:pointer;">↺ Rebuild</button>
+        <div style="font-size:12px;color:var(--text2);">Drag to reorder · ✕ removes · pins on the map match stop numbers</div>
       </div>
       <div id="route-stops" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
@@ -9991,10 +10017,28 @@ function buildRouteList(){
   var max    = parseInt((maxEl && maxEl.value) || '20', 10) || 20;
   var filterKey = region + '|' + stage + '|' + max;
 
+  populateSavedRoutes();
+
+  // First open: restore the last working route from this browser instead of
+  // clobbering it with an auto-filled list
+  if(!window._routeBooted){
+    window._routeBooted = true;
+    try{
+      var savedCur = JSON.parse(localStorage.getItem('sfcrm_current_route')||'null');
+      if(savedCur && savedCur.stops && savedCur.stops.length){
+        window.routeStops = savedCur.stops.filter(function(id){ return accounts.some(function(a){ return a.id===id; }); });
+        if(savedCur.start){ var se=document.getElementById('route-start'); if(se) se.value=savedCur.start; }
+        window._routeLastFilter = filterKey;
+        routeStartChanged();
+        return;
+      }
+    }catch(e){}
+    routeStartChanged();
+  }
+
   // If filter hasn't changed and we have stops, just re-render (preserves user's reorder)
   if(filterKey === window._routeLastFilter && window.routeStops.length){
-    renderRouteStops();
-    renderRouteSummary();
+    _routeAll();
     return;
   }
   window._routeLastFilter = filterKey;
@@ -10002,6 +10046,8 @@ function buildRouteList(){
   // Build candidate list
   var list = accounts.filter(function(a){
     if(!a.address || !a.address.trim()) return false;
+    if(a.stage === 'Merged') return false;
+    if(a.tags && a.tags.indexOf('merged-duplicate') !== -1) return false;
     if(stage && a.stage !== stage) return false;
     if(region){
       if(!a.tags) return false;
@@ -10022,8 +10068,223 @@ function buildRouteList(){
   if(list.length > max) list = list.slice(0, max);
 
   window.routeStops = list.map(function(a){ return a.id; });
+  _routeAll();
+}
+
+// Re-render everything route-related, persist the working route, badge the tab
+function _routeAll(){
   renderRouteStops();
   renderRouteSummary();
+  renderRouteMap();
+  try{
+    localStorage.setItem('sfcrm_current_route', JSON.stringify({
+      start: ((document.getElementById('route-start')||{}).value||''),
+      stops: window.routeStops
+    }));
+  }catch(e){}
+  var tb = document.getElementById('tab-route');
+  if(tb) tb.textContent = '🚗 Route Planner' + (window.routeStops.length ? ' ('+window.routeStops.length+')' : '');
+}
+
+function _acctById(id){
+  for(var j=0;j<accounts.length;j++){ if(accounts[j].id===id) return accounts[j]; }
+  return null;
+}
+
+// Best-known coordinates for a stop: exact geocode, else ZIP/town centroid
+function _stopLL(a){
+  var addr = (a.address||'').trim();
+  if(addr && typeof _geoCache!=='undefined' && _geoCache[addr]) return _geoCache[addr];
+  if(typeof _acctLatLng==='function'){ var r=_acctLatLng(a); if(r) return r.ll; }
+  return null;
+}
+
+// ── Live route map ──────────────────────────────────────────────────────────
+window._routeMap = null; window._routeLayer = null; window._routeStartLL = null;
+function renderRouteMap(){
+  var el = document.getElementById('route-map');
+  if(!el || typeof L === 'undefined') return;
+  if(!window._routeMap){
+    window._routeMap = L.map('route-map').setView([42.95,-75.53],7);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'&copy; OpenStreetMap contributors', maxZoom:19, className:'map-tiles-dark'
+    }).addTo(window._routeMap);
+    window._routeLayer = L.layerGroup().addTo(window._routeMap);
+  }
+  window._routeLayer.clearLayers();
+  var pts = [];
+  if(window._routeStartLL){
+    L.marker(window._routeStartLL,{icon:L.divIcon({className:'',html:"<div class='route-pin route-pin-start'>S</div>",iconSize:[26,26],iconAnchor:[13,13]})})
+      .addTo(window._routeLayer).bindPopup('Start: '+(((document.getElementById('route-start')||{}).value)||''));
+    pts.push(window._routeStartLL);
+  }
+  window.routeStops.forEach(function(aid,i){
+    var a = _acctById(aid); if(!a) return;
+    var ll = _stopLL(a); if(!ll) return;
+    var mk = L.marker(ll,{icon:L.divIcon({className:'',html:"<div class='route-pin'>"+(i+1)+"</div>",iconSize:[26,26],iconAnchor:[13,13]})});
+    mk.bindPopup("<div style='font-family:sans-serif;min-width:180px;'><b>"+(i+1)+". "+(a.name||'')+"</b>"
+      + "<div style='font-size:11px;color:#888;margin:3px 0;'>"+(a.address||a.location||'')+"</div>"
+      + (a.phone ? "<div style='font-size:11px;margin-bottom:3px;'><a href='tel:"+a.phone+"' style='color:#c8a96e;'>&#128222; "+a.phone+"</a></div>" : "")
+      + "<button onclick='removeRouteStopById("+aid+")' style='font-size:11px;padding:3px 8px;margin-right:4px;background:#b0483f;color:#fff;border:none;border-radius:4px;cursor:pointer;'>&times; Remove</button>"
+      + "<button onclick='logOutreach("+aid+")' style='font-size:11px;padding:3px 8px;background:#3b3f52;color:#e5e7eb;border:none;border-radius:4px;cursor:pointer;'>&#128221; Outreach</button></div>");
+    mk.addTo(window._routeLayer);
+    pts.push(ll);
+  });
+  if(pts.length>1) L.polyline(pts,{color:'#c8a96e',weight:3,opacity:.8,dashArray:'6 6'}).addTo(window._routeLayer);
+  if(pts.length) window._routeMap.fitBounds(L.latLngBounds(pts).pad(0.2));
+  setTimeout(function(){ if(window._routeMap) window._routeMap.invalidateSize(); },200);
+}
+
+// Geocode the start address so the route line and optimizer anchor to it
+function routeStartChanged(){
+  var v = (((document.getElementById('route-start')||{}).value)||'').trim();
+  window._routeStartLL = null;
+  if(!v){ _routeAll(); return; }
+  if(typeof _geoCache!=='undefined' && _geoCache[v]){ window._routeStartLL=_geoCache[v]; _routeAll(); return; }
+  _routeAll();  // render immediately, refine when geocode lands
+  if(typeof _geocodeOne==='function'){
+    _geocodeOne(v, function(ll){
+      if(ll){
+        window._routeStartLL = ll;
+        try{ if(typeof _geoCache!=='undefined'){ _geoCache[v]=ll; } }catch(e){}
+        renderRouteMap(); renderRouteSummary();
+      }
+    });
+  }
+}
+
+// ── Add-any-dispensary search ───────────────────────────────────────────────
+function routeSearchInput(){
+  var inp = document.getElementById('route-add-search');
+  var box = document.getElementById('route-add-results');
+  if(!inp || !box) return;
+  var q = inp.value.trim().toLowerCase();
+  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  var hits = [];
+  for(var i=0;i<accounts.length && hits.length<8;i++){
+    var a = accounts[i];
+    if(a.stage==='Merged') continue;
+    if(a.tags && a.tags.indexOf('merged-duplicate')!==-1) continue;
+    var hay = ((a.name||'')+' '+(a.address||'')+' '+(a.location||'')).toLowerCase();
+    if(hay.indexOf(q)!==-1) hits.push(a);
+  }
+  if(!hits.length){
+    box.innerHTML = "<div style='padding:10px;font-size:12px;color:var(--text3);'>No matches</div>";
+    box.style.display='block'; return;
+  }
+  box.innerHTML = hits.map(function(a){
+    var inR = window.routeStops.indexOf(a.id)!==-1;
+    return "<div onclick='routeAddFromSearch("+a.id+")' style='padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);"+(inR?'opacity:.5;':'')+"' onmouseover=\"this.style.background='#22221e'\" onmouseout=\"this.style.background=''\">"
+      + "<div style='font-size:12px;font-weight:600;'>"+(inR?'&#10003; ':'')+(a.name||'').replace(/</g,'&lt;')+"</div>"
+      + "<div style='font-size:10px;color:var(--text3);'>"+((a.address||a.location||'').replace(/</g,'&lt;'))+" &middot; "+(a.stage||'')+"</div></div>";
+  }).join('');
+  box.style.display='block';
+}
+function routeAddFromSearch(id){
+  var inp=document.getElementById('route-add-search'); if(inp) inp.value='';
+  var box=document.getElementById('route-add-results'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  addRouteStop(id);
+}
+document.addEventListener('click', function(e){
+  var box=document.getElementById('route-add-results');
+  if(box && box.style.display!=='none' && !box.contains(e.target) && (e.target||{}).id!=='route-add-search'){
+    box.style.display='none';
+  }
+});
+
+// Add a stop from anywhere (route search, or the main map popup's "+ Route" button)
+function addRouteStop(id, btn){
+  if(window.routeStops.indexOf(id)!==-1){
+    if(btn){ btn.textContent='✓ In route'; }
+    return;
+  }
+  window.routeStops.push(id);
+  if(btn){ btn.textContent='✓ Added'; btn.style.background='#6db87a'; btn.style.color='#0c0c0a'; }
+  _routeAll();
+}
+function removeRouteStopById(id){
+  var i = window.routeStops.indexOf(id);
+  if(i!==-1){ window.routeStops.splice(i,1); _routeAll(); }
+}
+
+// ── Route ops: optimize (nearest-neighbor + 2-opt), reverse, clear ─────────
+function optimizeRoute(){
+  if(window.routeStops.length<3){ _routeAll(); return; }
+  var withLL=[], without=[];
+  window.routeStops.forEach(function(id){
+    var a=_acctById(id); var ll=a?_stopLL(a):null;
+    if(ll) withLL.push({id:id,ll:ll}); else without.push(id);
+  });
+  if(withLL.length<3){ alert('Not enough located stops to optimize yet — open the Map tab once so addresses geocode.'); return; }
+  var start = window._routeStartLL || withLL[0].ll;
+  var rem=withLL.slice(), ordered=[], cur=start;
+  while(rem.length){
+    var bi=0, bd=Infinity;
+    for(var i=0;i<rem.length;i++){
+      var d=_routeHaversine(cur[0],cur[1],rem[i].ll[0],rem[i].ll[1]);
+      if(d<bd){ bd=d; bi=i; }
+    }
+    var nx=rem.splice(bi,1)[0]; ordered.push(nx); cur=nx.ll;
+  }
+  var improved=true, guard=0;
+  while(improved && guard++<30){
+    improved=false;
+    for(var i2=0;i2<ordered.length-2;i2++){
+      for(var k=i2+1;k<ordered.length-1;k++){
+        var A=(i2===0?start:ordered[i2-1].ll), B=ordered[i2].ll, C=ordered[k].ll, D=ordered[k+1].ll;
+        var now=_routeHaversine(A[0],A[1],B[0],B[1])+_routeHaversine(C[0],C[1],D[0],D[1]);
+        var alt=_routeHaversine(A[0],A[1],C[0],C[1])+_routeHaversine(B[0],B[1],D[0],D[1]);
+        if(alt<now-0.01){
+          ordered=ordered.slice(0,i2).concat(ordered.slice(i2,k+1).reverse(),ordered.slice(k+1));
+          improved=true;
+        }
+      }
+    }
+  }
+  window.routeStops = ordered.map(function(o){return o.id;}).concat(without);
+  _routeAll();
+}
+function reverseRoute(){ window.routeStops.reverse(); _routeAll(); }
+function clearRoute(){
+  if(window.routeStops.length && !confirm('Clear all '+window.routeStops.length+' stops?')) return;
+  window.routeStops=[]; _routeAll();
+}
+
+// ── Saved routes (per-browser) ──────────────────────────────────────────────
+function _savedRoutes(){ try{ return JSON.parse(localStorage.getItem('sfcrm_saved_routes')||'{}')||{}; }catch(e){ return {}; } }
+function populateSavedRoutes(){
+  var sel=document.getElementById('route-saved'); if(!sel) return;
+  var cur=sel.value, R=_savedRoutes();
+  var opts="<option value=''>Saved routes…</option>";
+  Object.keys(R).sort().forEach(function(k){
+    opts += "<option value=\""+k.replace(/"/g,'&quot;')+"\">"+k.replace(/</g,'&lt;')+" ("+((R[k].stops||[]).length)+" stops)</option>";
+  });
+  sel.innerHTML=opts;
+  sel.value=cur||'';
+}
+function saveCurrentRoute(){
+  if(!window.routeStops.length){ alert('No stops to save.'); return; }
+  var d=new Date(); var def='Route '+(d.getMonth()+1)+'/'+d.getDate();
+  var name=prompt('Name this route:',def); if(!name) return;
+  var R=_savedRoutes();
+  R[name]={ start:(((document.getElementById('route-start')||{}).value)||''), stops:window.routeStops.slice(), ts:Date.now() };
+  try{ localStorage.setItem('sfcrm_saved_routes',JSON.stringify(R)); }catch(e){}
+  populateSavedRoutes();
+  var sel=document.getElementById('route-saved'); if(sel) sel.value=name;
+}
+function loadSavedRoute(){
+  var sel=document.getElementById('route-saved'); if(!sel||!sel.value) return;
+  var r=_savedRoutes()[sel.value]; if(!r) return;
+  window.routeStops=(r.stops||[]).filter(function(id){ return accounts.some(function(a){ return a.id===id; }); });
+  if(r.start){ var se=document.getElementById('route-start'); if(se) se.value=r.start; }
+  routeStartChanged();
+}
+function deleteSavedRoute(){
+  var sel=document.getElementById('route-saved'); if(!sel||!sel.value) return;
+  if(!confirm('Delete saved route "'+sel.value+'"?')) return;
+  var R=_savedRoutes(); delete R[sel.value];
+  try{ localStorage.setItem('sfcrm_saved_routes',JSON.stringify(R)); }catch(e){}
+  populateSavedRoutes();
 }
 
 function renderRouteStops(){
@@ -10055,6 +10316,8 @@ function renderRouteStops(){
       +   '<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+addr+'</div>'
       + '</div>'
       + '<span style="font-size:10px;background:var(--surface3);color:'+stageColor+';border-radius:99px;padding:2px 8px;white-space:nowrap;">'+(a.stage||'')+'</span>'
+      + (a.phone ? '<a href="tel:'+a.phone+'" title="Call" style="color:var(--gold);text-decoration:none;font-size:13px;padding:2px 4px;">&#128222;</a>' : '')
+      + '<button onclick="logOutreach('+a.id+')" title="Log outreach" style="background:transparent;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 4px;">&#128221;</button>'
       + '<button onclick="removeRouteStop('+i+')" title="Remove" style="background:transparent;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:2px 6px;">&times;</button>'
       + '</div>';
   }
@@ -10068,33 +10331,29 @@ function renderRouteSummary(){
     sumEl.innerHTML = '<span style="color:var(--text3);">No stops yet.</span>';
     return;
   }
-  // Try to estimate total distance using _geoCache (if available)
-  var totalMi = 0;
-  var allGeocoded = true;
-  var startAddr = (document.getElementById('route-start') || {}).value || '';
-  var prevLL = null;
-  if(startAddr && typeof _geoCache !== 'undefined' && _geoCache[startAddr]){
-    prevLL = _geoCache[startAddr];
-  }
+  // Distance from best-known coordinates (exact geocode, else ZIP/town centroid)
+  var totalMi = 0, located = 0;
+  var prevLL = window._routeStartLL || null;
   for(var i=0; i<window.routeStops.length; i++){
-    var aid = window.routeStops[i];
-    var a = null;
-    for(var j=0;j<accounts.length;j++){ if(accounts[j].id === aid){ a = accounts[j]; break; } }
-    if(!a){ allGeocoded = false; continue; }
-    var addr = a.address || a.location || '';
-    var ll = (typeof _geoCache !== 'undefined') ? _geoCache[addr] : null;
-    if(!ll){ allGeocoded = false; continue; }
-    if(prevLL){
-      totalMi += _routeHaversine(prevLL[0], prevLL[1], ll[0], ll[1]);
-    }
+    var a = _acctById(window.routeStops[i]);
+    if(!a) continue;
+    var ll = _stopLL(a);
+    if(!ll) continue;
+    located++;
+    if(prevLL) totalMi += _routeHaversine(prevLL[0], prevLL[1], ll[0], ll[1]);
     prevLL = ll;
   }
-  var miStr = totalMi > 0 ? totalMi.toFixed(1) + ' mi' : '—';
-  var note = allGeocoded ? '' : ' <span style="color:var(--text3);font-size:11px;">(partial — open map first to geocode all)</span>';
+  var roadMi = totalMi * 1.3;                     // rough road factor over straight-line
+  var driveMin = Math.round(roadMi / 30 * 60);    // ~30 mph average incl. city
+  var visitMin = window.routeStops.length * 15;   // ~15 min per stop
+  var totMin = driveMin + visitMin;
+  var timeStr = totMin >= 60 ? Math.floor(totMin/60)+'h '+(totMin%60)+'m' : totMin+'m';
+  var note = (located === window.routeStops.length) ? '' : ' <span style="color:var(--text3);font-size:11px;">('+located+'/'+window.routeStops.length+' stops located)</span>';
   sumEl.innerHTML =
       '<div><strong>'+window.routeStops.length+'</strong> stops</div>'
-    + '<div><strong>'+miStr+'</strong> straight-line distance'+note+'</div>'
-    + '<div style="color:var(--text3);font-size:11px;margin-top:4px;">Driving distance is longer — see Google Maps for actuals.</div>';
+    + (totalMi > 0 ? '<div><strong>~'+roadMi.toFixed(0)+' mi</strong> est. driving ('+totalMi.toFixed(1)+' mi straight-line)'+note+'</div>' : '')
+    + (totalMi > 0 ? '<div><strong>~'+timeStr+'</strong> est. day (drive + ~15 min/stop)</div>' : '')
+    + '<div style="color:var(--text3);font-size:11px;margin-top:4px;">Estimates only — open in Google Maps for live traffic.</div>';
 }
 
 // Haversine miles between two lat/lng pairs
@@ -10128,8 +10387,7 @@ function routeDrop(e, idx){
   var moved = window.routeStops.splice(from, 1)[0];
   window.routeStops.splice(idx, 0, moved);
   window._routeDragIdx = -1;
-  renderRouteStops();
-  renderRouteSummary();
+  _routeAll();
   return false;
 }
 function routeDragEnd(e){
@@ -10139,33 +10397,59 @@ function routeDragEnd(e){
 
 function removeRouteStop(idx){
   window.routeStops.splice(idx, 1);
-  renderRouteStops();
-  renderRouteSummary();
+  _routeAll();
 }
 
-// Build a Google Maps directions URL
+// Build Google Maps directions URLs. Google caps a directions URL at ~10
+// locations, so longer routes are split into legs that chain end-to-end.
+function _routeAddrs(){
+  var out = [];
+  for(var i=0; i<window.routeStops.length; i++){
+    var a = _acctById(window.routeStops[i]);
+    if(a && (a.address || a.location)) out.push(a.address || a.location);
+  }
+  return out;
+}
+function _gmapsLegUrl(origin, stops){
+  var destination = encodeURIComponent(stops[stops.length-1]);
+  var waypoints = stops.slice(0, -1).map(encodeURIComponent).join('%7C');
+  return 'https://www.google.com/maps/dir/?api=1'
+       + '&origin=' + encodeURIComponent(origin)
+       + '&destination=' + destination
+       + (waypoints ? '&waypoints=' + waypoints : '')
+       + '&travelmode=driving';
+}
 function openRouteInGoogleMaps(){
   if(!window.routeStops.length){ alert('No stops to route.'); return; }
   var startAddr = (document.getElementById('route-start') || {}).value || 'New York, NY';
-  var stops = [];
-  for(var i=0; i<window.routeStops.length; i++){
-    var aid = window.routeStops[i];
-    var a = null;
-    for(var j=0;j<accounts.length;j++){ if(accounts[j].id === aid){ a = accounts[j]; break; } }
-    if(a && a.address) stops.push(a.address);
-  }
+  var stops = _routeAddrs();
   if(!stops.length){ alert('No stop addresses available.'); return; }
-  // Google Maps directions URL spec:
-  // origin, destination, and waypoints (everything between)
-  var origin = encodeURIComponent(startAddr);
-  var destination = encodeURIComponent(stops[stops.length-1]);
-  var waypoints = stops.slice(0, -1).map(encodeURIComponent).join('%7C');
-  var url = 'https://www.google.com/maps/dir/?api=1'
-          + '&origin=' + origin
-          + '&destination=' + destination
-          + (waypoints ? '&waypoints=' + waypoints : '')
-          + '&travelmode=driving';
-  window.open(url, '_blank');
+  var LEG = 10, legs = [], origin = startAddr;
+  for(var i=0; i<stops.length; i+=LEG){
+    var part = stops.slice(i, i+LEG);
+    legs.push(_gmapsLegUrl(origin, part));
+    origin = part[part.length-1];
+  }
+  var partsEl = document.getElementById('route-gmaps-parts');
+  if(partsEl) partsEl.innerHTML = legs.length > 1
+    ? 'Route legs: ' + legs.map(function(u,i2){ return "<a href='"+u+"' target='_blank' style='color:var(--gold);font-weight:600;'>Leg "+(i2+1)+"</a>"; }).join(' &middot; ')
+    : '';
+  window.open(legs[0], '_blank');
+  if(legs.length > 1){
+    alert('Google Maps caps directions at 10 stops, so your route was split into '+legs.length+' legs. Leg 1 just opened — links to the rest are in the Route Summary box.');
+  }
+}
+function copyRouteLink(){
+  if(!window.routeStops.length){ alert('No stops to route.'); return; }
+  var startAddr = (document.getElementById('route-start') || {}).value || 'New York, NY';
+  var stops = _routeAddrs();
+  if(!stops.length){ alert('No stop addresses available.'); return; }
+  var url = _gmapsLegUrl(startAddr, stops.slice(0,10));
+  var suffix = stops.length > 10 ? ' (first 10 stops — Google Maps URL limit)' : '';
+  function ok(){ alert('Route link copied'+suffix+' — paste it into a text or email.'); }
+  function fail(){ prompt('Copy this route link'+suffix+':', url); }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(ok, fail); }
+  else fail();
 }
 
 // Waze only supports one destination per URL — open the first stop
@@ -10701,6 +10985,7 @@ function renderMap() {
         + (_isChain(a) ? "<span style='background:#9aff5e;color:#000;font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600;'>CHAIN</span>" : "")
         + (a.email ? "<button onclick='openEmail(" + a.id + ")' style='font-size:11px;padding:3px 10px;background:#c8a96e;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:600;'>&#9993; Email</button>" : "")
         + "<button onclick='logOutreach(" + a.id + ")' style='font-size:11px;padding:3px 10px;background:#3b3f52;color:#e5e7eb;border:none;border-radius:5px;cursor:pointer;font-weight:600;'>&#128221; Log outreach</button>"
+        + "<button onclick='addRouteStop(" + a.id + ",this)' title='Add this stop to the Route Planner' style='font-size:11px;padding:3px 10px;background:#2f4a3a;color:#a7e0b5;border:none;border-radius:5px;cursor:pointer;font-weight:600;'>" + (window.routeStops && window.routeStops.indexOf(a.id)!==-1 ? "&#10003; In route" : "&#128663; + Route") + "</button>"
       + "</div>"
       + "</div>";
 
