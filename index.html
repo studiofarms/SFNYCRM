@@ -375,6 +375,8 @@ td:nth-child(1){max-width:240px;}td:nth-child(2){max-width:180px;}td:nth-child(3
 .route-stop .stop-visit-btn{background:var(--surface3);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .route-stop .stop-visit-btn:hover{color:var(--gold);border-color:rgba(200,169,110,.3);}
 /* MAP POPUP */
+/* Dark-mode basemap: invert OSM's light tiles (tiles only, not markers/popups) */
+.map-tiles-dark{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.4);}
 .dp-popup .leaflet-popup-content-wrapper{background:#1c1c19!important;color:#f2ede6!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;}
 .dp-popup .leaflet-popup-tip{background:#1c1c19!important;}
 .dp-popup .leaflet-popup-content{margin:12px 14px!important;font-family:'DM Sans',sans-serif;}
@@ -10652,8 +10654,11 @@ function renderMap() {
 
   if (!_crmMap) {
     _crmMap = L.map('crm-map').setView([c[0], c[1]], c[2]);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB', maxZoom: 19
+    // OpenStreetMap tiles (keyless, no API account) darkened via CSS filter;
+    // Carto's anonymous basemap API started rejecting requests.
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
+      className: 'map-tiles-dark'
     }).addTo(_crmMap);
   } else {
     _crmMap.setView([c[0], c[1]], c[2]);
